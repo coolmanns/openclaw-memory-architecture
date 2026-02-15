@@ -46,6 +46,15 @@ This architecture uses **each tool where it's strongest**.
 │  │  facts       │  │  events    │  │  GP-001...  │ │
 │  └──────────────┘  └────────────┘  └─────────────┘ │
 │                                                       │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │           PROJECT MEMORY (NEW in v2)              │ │
+│  │  memory/project-{slug}.md per project             │ │
+│  │  Agent-independent institutional knowledge:       │ │
+│  │  decisions, lessons, conventions, risks            │ │
+│  │  Created by wizard · Read by all agents at boot   │ │
+│  │  Updated by PM at phase close                     │ │
+│  └──────────────────────────────────────────────────┘ │
+│                                                       │
 │  ┌──────────────┐  ┌──────────────┐                  │
 │  │ tools-*.md   │  │ checkpoints/ │                  │
 │  │ (runbooks)   │  │ (pre-flight) │                  │
@@ -63,6 +72,31 @@ Files injected into every session start. Keep them **lean** (total <2K tokens).
 | `active-context.md` | What's happening right now | <2KB |
 | `MEMORY.md` | Long-term curated wisdom | <8KB |
 | `USER.md` | Who your human is | <3KB |
+
+### Layer 1.5: Project Memory (NEW in v2)
+Per-project institutional knowledge that survives agent resets and compaction.
+
+```
+memory/project-clawsmith.md    — architecture decisions, lessons, conventions
+memory/project-my-app.md       — same pattern, different project
+```
+
+**The problem it solves:** When agents reset or compact, project knowledge vanishes. Toby forgets the pull-based workflow. Pete loses architecture decisions. New agents start from zero.
+
+**The fix:** One file per project, agent-independent, maintained by the PM at phase close:
+
+```
+Wizard creates project → seeds project-{slug}.md
+All project agents read at boot (step 1)
+Agents work, learn, make decisions
+PM consolidates at phase close → updates project-{slug}.md
+Agent resets → boots with institutional knowledge intact
+```
+
+**What goes in:** Architecture decisions, hard-won lessons, workflow patterns, conventions, known risks.
+**What stays out:** Backlog items, sprint status, daily logs — those are the DB's job.
+
+Template: [`templates/project-memory.md`](templates/project-memory.md)
 
 ### Layer 2: Structured Facts (SQLite + FTS5)
 For precise lookups that don't need embeddings.
@@ -108,18 +142,31 @@ State saves before risky operations. If compaction hits mid-task, checkpoints su
 ```
 Daily logs → active-context.md → MEMORY.md → facts.db
 (raw)        (working memory)    (curated)   (structured)
+
+Session work → phase close → project-{slug}.md
+(ephemeral)   (PM gate)      (institutional)
 ```
 
 ### Session Boot Sequence
+
+**Main agent (personal assistant):**
 ```
 1. Read SOUL.md (who am I)
 2. Read USER.md (who am I helping)
 3. Read active-context.md (what's hot)
 4. Read today's + yesterday's daily log
-5. [Main session only] Read MEMORY.md
+5. Read MEMORY.md
 6. [On demand] Semantic search for specific recalls
 7. [On demand] facts.db for structured lookups
 8. [If risky task] Check gating-policies.md
+```
+
+**Project agents (dev, PM, QA, etc.):**
+```
+1. Read memory/project-{slug}.md (institutional knowledge — FIRST)
+2. Read SOUL.md / IDENTITY.md (who am I)
+3. Agent-specific boot steps (query project DB, check work queue, etc.)
+4. Read today's daily log for recent context
 ```
 
 ## Setup
@@ -234,6 +281,32 @@ When something goes wrong, add a rule to `memory/gating-policies.md`:
 
 **Recommendation:** Start with Ollama for zero cost and full local control. QMD adds reranking quality if you can tolerate the latency.
 
+### GPU Setup (AMD ROCm)
+
+If you have an AMD GPU, use the `ollama/ollama:rocm` Docker image with device passthrough. See [`docs/embedding-setup.md`](docs/embedding-setup.md) for the full docker-compose with ROCm flags, group IDs, and environment variables.
+
+**Pro tip:** Pin the embedding model permanently in VRAM for instant responses:
+```bash
+curl -s http://localhost:11434/api/generate \
+  -d '{"model":"nomic-embed-text","keep_alive":-1}'
+```
+
+## Reference Hardware
+
+This architecture is battle-tested on:
+
+| Component | Spec |
+|-----------|------|
+| **CPU** | AMD Ryzen AI MAX+ 395 — 16c/32t |
+| **RAM** | 32GB DDR5 (unified with GPU) |
+| **GPU** | AMD Radeon 8060S — 40 CUs, 96GB unified VRAM |
+| **Storage** | 1.9TB NVMe |
+| **OS** | Ubuntu 25.10 |
+
+The 96GB unified VRAM lets us run embedding models, rerankers, and large LLMs simultaneously without swapping. Smaller setups (8-16GB VRAM) work fine — just use Ollama alone without QMD, and don't pin too many models.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for detailed VRAM allocation breakdown and full hardware documentation.
+
 ## Semantic Code Search (Optional)
 
 For codebase-aware agents, add [grepai](https://github.com/yoanbernabeu/grepai) — semantic code search using the same `nomic-embed-text` model. Search your code by meaning ("authentication logic") instead of text patterns.
@@ -253,6 +326,10 @@ This architecture was informed by:
 - **Shawn Harris** — [Building a Cognitive Architecture for Your OpenClaw Agent](https://shawnharris.com/building-a-cognitive-architecture-for-your-openclaw-agent/) (active-context.md, gating policies, runbooks)
 - **r/openclaw community** — Hybrid SQLite+FTS5+vector memory approach (structured facts, memory decay, decision extraction)
 - Battle-tested on a production OpenClaw deployment managing 11 agents across multiple projects.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 
