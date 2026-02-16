@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1 — 2026-02-16
+
+### Added
+- **Importance tagging for daily logs** — tiered retention system with five tag types (`decision`, `milestone`, `lesson`, `task`, `context`) and importance scores controlling auto-pruning
+- **Auto-pruning script** — `scripts/prune-memory.py` enforces retention tiers (STRUCTURAL permanent, POTENTIAL 30d, CONTEXTUAL 7d) with `--dry-run` support
+- **SLEEP session lifecycle** — the other half of Wake/Sleep: active-context update, tagged observations, MEMORY.md distillation before session end or compaction
+- **Memory maintenance via heartbeats** — periodic consolidation: review daily files, update MEMORY.md, prune stale info, cross-check USER.md for missed personal details
+- **USER.md maintenance pattern** — explicit guidance on keeping your human's profile current
+- **5 battle-tested gating policies** (GP-008 through GP-012):
+  - GP-008: Full-array replacement for config.patch (partial patch destroys lists)
+  - GP-009: Read active-context.md after model/session switch
+  - GP-010: Update USER.md immediately when learning about your human
+  - GP-011: Re-embed entire index after embedding model changes
+  - GP-012: Run writing quality pipeline before publishing
+
+### Changed
+- `README.md` — Layer 4 (Daily Logs) expanded with importance tagging reference, retention tiers, and auto-pruning docs; Session Boot Sequence now includes SLEEP lifecycle
+- `templates/agents-memory-section.md` — renamed "Boot Sequence" to "Wake/Sleep Pattern", added SLEEP phase with importance tags, added Memory Maintenance section, added USER.md section
+- `templates/gating-policies.md` — 5 new real-world policies from production failures
+
 ## v2.0 — 2026-02-15
 
 ### Added

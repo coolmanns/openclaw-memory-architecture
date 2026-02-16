@@ -122,6 +122,50 @@ For fuzzy recall where keywords don't match but meaning does. Works with:
 ### Layer 4: Daily Logs
 `memory/YYYY-MM-DD.md` — raw session logs. What happened today. Source material for curation.
 
+#### Importance Tagging
+
+Every observation in a daily log gets an importance tag that controls retention:
+
+```markdown
+- [decision|i=0.9] Switched from PostgreSQL to SQLite for facts storage
+- [milestone|i=0.85] Shipped v2.0 of memory architecture to GitHub
+- [lesson|i=0.7] Partial array patches in config.patch nuke the entire list
+- [task|i=0.6] Need to add rate limiting to the embedding endpoint
+- [context|i=0.3] Ran routine memory maintenance, nothing notable
+```
+
+**Tag reference:**
+
+| Tag | Importance | Meaning | Example |
+|-----|-----------|---------|---------|
+| `decision` | 0.9 | Choices made | Switched ORMs, picked a model |
+| `milestone` | 0.85 | Things shipped/deployed/published | Released v2.0, deployed to prod |
+| `lesson` | 0.7 | What you learned | "Don't partial-patch arrays" |
+| `task` | 0.6 | Work identified but not done | "Need to add auth to endpoint" |
+| `context` | 0.3 | Routine status, minor updates | "Ran backups, all green" |
+
+**Retention tiers:**
+
+| Tier | Importance | Retention | Rationale |
+|------|-----------|-----------|-----------|
+| **STRUCTURAL** | i ≥ 0.8 | Permanent | Decisions and milestones define the project's history |
+| **POTENTIAL** | 0.4 ≤ i < 0.8 | 30 days | Lessons and tasks stay relevant for ~a month |
+| **CONTEXTUAL** | i < 0.4 | 7 days | Routine status loses value fast |
+
+#### Auto-Pruning
+
+`scripts/prune-memory.py` enforces these retention tiers automatically:
+
+```bash
+# Preview what would be pruned
+python3 scripts/prune-memory.py --dry-run
+
+# Actually prune
+python3 scripts/prune-memory.py
+```
+
+Run it on a cron, during heartbeats, or manually. It scans `memory/YYYY-MM-DD.md` files, removes expired observations, and reports structural items worth promoting to `MEMORY.md`.
+
 ### Layer 5: Gating Policies
 Numbered failure prevention rules learned from actual mistakes:
 
@@ -168,6 +212,18 @@ Session work → phase close → project-{slug}.md
 3. Agent-specific boot steps (query project DB, check work queue, etc.)
 4. Read today's daily log for recent context
 ```
+
+### Session End (SLEEP)
+
+Before a session ends, gets compacted, or when context is getting heavy:
+
+```
+1. Update memory/active-context.md — what the next session needs to know
+2. Write observations to memory/YYYY-MM-DD.md with importance tags
+3. If significant work happened → update MEMORY.md with distilled insights
+```
+
+This is the other half of the Wake/Sleep cycle. WAKE loads context; SLEEP preserves it. Without SLEEP, the next session boots blind.
 
 ## Setup
 

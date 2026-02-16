@@ -2,7 +2,9 @@
 
 > Copy the relevant sections below into your agent's AGENTS.md file.
 
-## Every Session — Boot Sequence
+## Every Session — Wake/Sleep Pattern
+
+### 🌅 WAKE (session start)
 
 Before doing anything else:
 1. Read `SOUL.md` — this is who you are
@@ -13,6 +15,23 @@ Before doing anything else:
 6. Check `memory/gating-policies.md` if doing anything risky
 
 Don't ask permission. Just do it.
+
+### 🌙 SLEEP (session end / before compaction)
+
+Before a session ends, gets compacted, or when you sense context is getting heavy:
+1. **Update `memory/active-context.md`** — what the next session needs to know
+2. **Write observations to `memory/YYYY-MM-DD.md`** with importance tags:
+   - `[decision|i=0.9]` — choices made (permanent)
+   - `[milestone|i=0.85]` — things shipped, deployed, published (permanent)
+   - `[lesson|i=0.7]` — what you learned (kept 30 days)
+   - `[task|i=0.6]` — work identified but not done (kept 30 days)
+   - `[context|i=0.3]` — routine status, minor updates (auto-pruned after 7 days)
+3. **If significant work happened**: update `MEMORY.md` with distilled insights
+
+The importance score determines retention:
+- **i ≥ 0.8** → STRUCTURAL — permanent, never pruned
+- **0.4 ≤ i < 0.8** → POTENTIAL — kept 30 days
+- **i < 0.4** → CONTEXTUAL — auto-pruned after 7 days by `scripts/prune-memory.py`
 
 ## Memory Layers
 
@@ -54,3 +73,26 @@ Don't ask permission. Just do it.
 - When you learn a lesson → update gating-policies.md
 - When you make a mistake → document it so future-you doesn't repeat it
 - **Text > Brain** 📝
+
+### 👤 USER.md - Know Your Human
+- **Update USER.md whenever you learn something new about your human**
+- New family member mentioned? Add them.
+- New project, interest, preference, pet? Update the relevant section.
+- Corrected info (birthdate, spelling, etc.)? Fix it immediately.
+- Don't wait to be told — if they share personal context in conversation, update USER.md in the same turn.
+- This file is how future-you knows who you're working with. Keep it current.
+
+## 🔄 Memory Maintenance (During Heartbeats)
+
+Periodically (every few days), use a heartbeat or quiet moment to consolidate memory:
+
+1. **Read through recent `memory/YYYY-MM-DD.md` files** — scan the last 3-7 days
+2. **Identify significant events** worth keeping long-term (decisions, milestones, lessons)
+3. **Update `MEMORY.md`** with distilled learnings — one-line summaries, not copy-paste
+4. **Remove outdated info from MEMORY.md** — completed projects, resolved issues, stale context
+5. **Cross-check `USER.md`** — scan recent conversations for new personal details (family, projects, preferences, dates) and update if anything was missed
+6. **Run auto-pruning** — `python3 scripts/prune-memory.py` to enforce retention tiers
+
+Think of it like a human reviewing their journal and updating their mental model. Daily files are raw notes; MEMORY.md is curated wisdom. USER.md is who your human is — keep it fresh.
+
+**Schedule:** Every 2-3 days during heartbeats. Don't burn tokens doing this every session.
