@@ -96,7 +96,7 @@ Files injected into every session start. Keep them **lean** (total <2K tokens).
 | `MEMORY.md` | Long-term curated wisdom | <8KB |
 | `USER.md` | Who your human is | <3KB |
 
-### Layer 1.5: Project Memory
+### Layer 2: Project Memory
 Per-project institutional knowledge that survives agent resets and compaction.
 
 ```
@@ -121,7 +121,7 @@ Agent resets → boots with institutional knowledge intact
 
 Template: [`templates/project-memory.md`](templates/project-memory.md)
 
-### Layer 2: Structured Facts (SQLite + FTS5)
+### Layer 3: Structured Facts (SQLite + FTS5)
 For precise lookups that don't need embeddings.
 
 ```sql
@@ -136,13 +136,13 @@ SELECT * FROM facts_fts WHERE facts_fts MATCH 'birthday';
 
 Categories: `person`, `project`, `decision`, `convention`, `credential`, `preference`, `date`, `location`
 
-### Layer 3: Semantic Search
+### Layer 4: Semantic Search
 For fuzzy recall where keywords don't match but meaning does. Works with:
 - **QMD** (OpenClaw's built-in) — reranking + query expansion
 - **Ollama** (local embeddings) — zero cost, 61ms
 - **OpenAI** (cloud) — higher quality, per-call cost
 
-### Layer 4: Daily Logs
+### Layer 5: Daily Logs
 `memory/YYYY-MM-DD.md` — raw session logs. What happened today. Source material for curation.
 
 #### Importance Tagging
@@ -189,7 +189,7 @@ python3 scripts/prune-memory.py
 
 Run it on a cron, during heartbeats, or manually. It scans `memory/YYYY-MM-DD.md` files, removes expired observations, and reports structural items worth promoting to `MEMORY.md`.
 
-### Layer 5: Gating Policies
+### Layer 6: Gating Policies
 Numbered failure prevention rules learned from actual mistakes:
 
 ```
@@ -197,10 +197,10 @@ GP-001 | Before config.patch on arrays | Read current, modify in full | Partial 
 GP-004 | Before stating any date/time  | Run TZ command first         | Timezone mistakes from mental math
 ```
 
-### Layer 6: Pre-Flight Checkpoints
+### Layer 7: Pre-Flight Checkpoints
 State saves before risky operations. If compaction hits mid-task, checkpoints survive.
 
-### Layer 7: Procedural Memory (Runbooks)
+### Layer 8: Procedural Memory (Runbooks)
 `tools-*.md` files documenting HOW to do things — API endpoints, auth flows, multi-step procedures. Survives model switches and compaction.
 
 ## Information Flow
@@ -354,7 +354,7 @@ When something goes wrong, add a rule to `memory/gating-policies.md`:
 
 Two OpenClaw plugins add runtime memory capabilities that operate **during** conversations, not just at boot time.
 
-### Continuity Plugin (`openclaw-plugin-continuity`)
+### Layer 9: Continuity Plugin (`openclaw-plugin-continuity`)
 
 Cross-session memory and conversation awareness. Runs as an OpenClaw gateway plugin.
 
@@ -371,7 +371,7 @@ Cross-session memory and conversation awareness. Runs as an OpenClaw gateway plu
 
 **Config:** Fully configurable via `openclaw.plugin.json` — token budgets, anchor detection keywords, topic fixation thresholds, compaction triggers, embedding model, archive retention days.
 
-### Stability Plugin (`openclaw-plugin-stability`)
+### Layer 10: Stability Plugin (`openclaw-plugin-stability`)
 
 Runtime behavioral monitoring. Keeps agents grounded and self-aware.
 

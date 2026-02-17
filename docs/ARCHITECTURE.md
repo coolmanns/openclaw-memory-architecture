@@ -96,7 +96,7 @@ Gandalf's memory is a multi-layered system designed to survive session resets, c
 
 **Token budget:** ~2,000 tokens total for always-loaded files. Keep them lean.
 
-### Layer 2: Strategic Memory (Main Session Only)
+### Layer 2: Strategic Memory (MEMORY.md — Main Session Only)
 
 | File | Purpose | Size Target | Update Frequency |
 |------|---------|-------------|-----------------|
@@ -108,7 +108,7 @@ Gandalf's memory is a multi-layered system designed to survive session resets, c
 - Reviewed and pruned every few days during heartbeat maintenance
 - Daily files get distilled into MEMORY.md, not dumped wholesale
 
-### Layer 2.5: Project Memory (Cross-Agent, Per-Project)
+### Layer 3: Project Memory (Cross-Agent, Per-Project)
 
 **`memory/project-{slug}.md`** — Institutional knowledge per project.
 
@@ -144,7 +144,7 @@ Gandalf's memory is a multi-layered system designed to survive session resets, c
 - Main agent (Gandalf) can also update it when significant cross-cutting decisions happen
 - Keep it under 6KB — distilled wisdom, not a dump of everything
 
-### Layer 3: Structured Facts (SQLite)
+### Layer 4: Structured Facts (SQLite)
 
 **`memory/facts.db`** — Entity/key/value store for precise lookups.
 
@@ -181,7 +181,7 @@ CREATE VIRTUAL TABLE facts_fts USING fts5(entity, key, value, content=facts, con
 | `credential` | API keys, endpoints (reference only) | Yes |
 | `preference` | "Prefers dark mode", "hates sycophancy" | Yes |
 
-### Layer 4: Semantic Search
+### Layer 5: Semantic Search
 
 Two-tier search with automatic fallback:
 
@@ -222,7 +222,7 @@ Two-tier search with automatic fallback:
 }
 ```
 
-### Layer 5: Daily Logs (Tactical)
+### Layer 6: Daily Logs (Tactical)
 
 **`memory/YYYY-MM-DD.md`** — Raw session logs. What happened today.
 
@@ -231,7 +231,7 @@ Two-tier search with automatic fallback:
 - Source material for MEMORY.md curation and facts extraction
 - Loaded on demand via `memory_search`, not injected into context
 
-### Layer 6: Procedural Memory (Runbooks)
+### Layer 7: Procedural Memory (Runbooks)
 
 **`memory/tools-*.md`** and **`TOOLS.md`** — How to do things.
 
@@ -243,7 +243,7 @@ Two-tier search with automatic fallback:
 
 **Rule:** If a task requires multi-step tool use, it should have a runbook in `memory/tools-*.md`. When a task has a runbook, read it before executing.
 
-### Layer 7: Gating Policies
+### Layer 8: Gating Policies
 
 **`memory/gating-policies.md`** — Numbered failure prevention rules.
 
@@ -252,7 +252,7 @@ Each policy emerged from an actual failure. Format:
 GP-XXX | Trigger | Action | Reason (what went wrong)
 ```
 
-### Layer 8: Pre-Flight Checkpoints
+### Layer 9: Pre-Flight Checkpoints
 
 **`memory/checkpoints/`** — State saves before risky operations.
 
@@ -261,7 +261,7 @@ GP-XXX | Trigger | Action | Reason (what went wrong)
 - Auto-expire: deleted after 4 hours (or on successful completion)
 - Purpose: survive compaction mid-task
 
-### Layer 9: Continuity Plugin (Runtime)
+### Layer 10: Continuity Plugin (Runtime)
 
 **`openclaw-plugin-continuity`** — Cross-session conversation memory.
 
@@ -290,7 +290,7 @@ Topics: keystone (active), plugins (fixated — 5 mentions), memory (active)
 - `archive.retentionDays: 90` — how long archived conversations are kept
 - `embedding.model: "Xenova/all-MiniLM-L6-v2"` — local embedding model (384 dimensions)
 
-### Layer 10: Stability Plugin (Runtime)
+### Layer 11: Stability Plugin (Runtime)
 
 **`openclaw-plugin-stability`** — Behavioral monitoring and drift prevention.
 
