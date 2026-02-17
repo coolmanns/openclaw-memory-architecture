@@ -61,7 +61,7 @@ This architecture uses **each tool where it's strongest**.
 │  └──────────────┘  └──────────────┘                  │
 │                                                       │
 ├──────────────────────────────────────────────────────┤
-│              PLUGIN LAYERS (NEW in v3)                │
+│              PLUGIN LAYERS (10–11)                    │
 ├──────────────────────────────────────────────────────┤
 │                                                       │
 │  ┌──────────────────────────────────────────────────┐ │
@@ -109,10 +109,18 @@ Files injected into every session start. Keep them **lean** (total <2K tokens).
 | File | Purpose | Target Size |
 |------|---------|-------------|
 | `active-context.md` | What's happening right now | <2KB |
-| `MEMORY.md` | Long-term curated wisdom | <8KB |
 | `USER.md` | Who your human is | <3KB |
+| `SOUL.md` | Agent identity and voice | <2KB |
+| `IDENTITY.md` | Quick identity card (name, emoji) | <0.5KB |
 
-### Layer 2: Project Memory
+### Layer 2: Strategic Memory (MEMORY.md)
+Long-term curated wisdom. **Main session only** — never loaded in shared contexts (Discord, group chats) to prevent personal context leakage.
+
+| File | Purpose | Target Size |
+|------|---------|-------------|
+| `MEMORY.md` | Curated lessons, insights, key events | <8KB |
+
+### Layer 3: Project Memory
 Per-project institutional knowledge that survives agent resets and compaction.
 
 ```
@@ -137,7 +145,7 @@ Agent resets → boots with institutional knowledge intact
 
 Template: [`templates/project-memory.md`](templates/project-memory.md)
 
-### Layer 3: Structured Facts (SQLite + FTS5)
+### Layer 4: Structured Facts (SQLite + FTS5)
 For precise lookups that don't need embeddings.
 
 ```sql
@@ -152,13 +160,13 @@ SELECT * FROM facts_fts WHERE facts_fts MATCH 'birthday';
 
 Categories: `person`, `project`, `decision`, `convention`, `credential`, `preference`, `date`, `location`
 
-### Layer 4: Semantic Search
+### Layer 5: Semantic Search
 For fuzzy recall where keywords don't match but meaning does. Works with:
 - **QMD** (OpenClaw's built-in) — reranking + query expansion
 - **Ollama** (local embeddings) — zero cost, 61ms
 - **OpenAI** (cloud) — higher quality, per-call cost
 
-### Layer 5: Daily Logs
+### Layer 6: Daily Logs
 `memory/YYYY-MM-DD.md` — raw session logs. What happened today. Source material for curation.
 
 #### Importance Tagging
@@ -205,7 +213,10 @@ python3 scripts/prune-memory.py
 
 Run it on a cron, during heartbeats, or manually. It scans `memory/YYYY-MM-DD.md` files, removes expired observations, and reports structural items worth promoting to `MEMORY.md`.
 
-### Layer 6: Gating Policies
+### Layer 7: Procedural Memory (Runbooks)
+`tools-*.md` files documenting HOW to do things — API endpoints, auth flows, multi-step procedures. Survives model switches and compaction.
+
+### Layer 8: Gating Policies
 Numbered failure prevention rules learned from actual mistakes:
 
 ```
@@ -213,11 +224,8 @@ GP-001 | Before config.patch on arrays | Read current, modify in full | Partial 
 GP-004 | Before stating any date/time  | Run TZ command first         | Timezone mistakes from mental math
 ```
 
-### Layer 7: Pre-Flight Checkpoints
+### Layer 9: Pre-Flight Checkpoints
 State saves before risky operations. If compaction hits mid-task, checkpoints survive.
-
-### Layer 8: Procedural Memory (Runbooks)
-`tools-*.md` files documenting HOW to do things — API endpoints, auth flows, multi-step procedures. Survives model switches and compaction.
 
 ## Information Flow
 
@@ -366,11 +374,11 @@ When something goes wrong, add a rule to `memory/gating-policies.md`:
 | GP-XXX | [trigger condition] | [required action] | [what went wrong and when] |
 ```
 
-## Plugin Layers (NEW in v3)
+## Plugin Layers (10–11)
 
 Two OpenClaw plugins add runtime memory capabilities that operate **during** conversations, not just at boot time.
 
-### Layer 9: Continuity Plugin (`openclaw-plugin-continuity`)
+### Layer 10: Continuity Plugin (`openclaw-plugin-continuity`)
 
 Cross-session memory and conversation awareness. Runs as an OpenClaw gateway plugin.
 
@@ -387,7 +395,7 @@ Cross-session memory and conversation awareness. Runs as an OpenClaw gateway plu
 
 **Config:** Fully configurable via `openclaw.plugin.json` — token budgets, anchor detection keywords, topic fixation thresholds, compaction triggers, embedding model, archive retention days.
 
-### Layer 10: Stability Plugin (`openclaw-plugin-stability`)
+### Layer 11: Stability Plugin (`openclaw-plugin-stability`)
 
 Runtime behavioral monitoring. Keeps agents grounded and self-aware.
 
