@@ -98,3 +98,23 @@
 ### Infrastructure
 - New Docker container: `llama-embed` (llama.cpp + nomic-embed-text-v1.5-f16.gguf on ROCm GPU)
 - Managed via Komodo stack on port 8082
+
+## 2026-02-20 — plugins.allow Fix, Graph Telemetry Debug, Documentation
+
+### Bug Fix
+- **plugins.allow was blocking graph-memory** — the allowlist set on Feb 17 didn't include `graph-memory`, so the plugin never loaded despite being `enabled: true`. No errors were logged — it was completely silent. Fixed by adding `graph-memory` to allow list.
+
+### plugin-graph-memory
+- Added telemetry for ALL exit paths: too-short queries, no-entity-match, empty results, errors
+- Debug logging for `_stripContextBlocks` behavior
+
+### plugin-continuity
+- Added QMD/BM25 telemetry via `tool_result_persist` hook
+
+### Documentation
+- Added `plugins.allow` gotcha with handler count verification method
+- Updated continuity plugin section: llama.cpp GPU embeddings (768d), 60x faster
+- Added Search Telemetry section with report/benchmark/tail usage
+- Updated embedding options table with llama.cpp + latency comparison
+- Added llama.cpp embedding server Docker setup guide
+- Added nomic-embed-text task prefix documentation

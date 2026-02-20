@@ -228,7 +228,13 @@ module.exports = {
                 if (!userText || userText.length < 5) return { prependContext: '' };
 
                 const cleanText = _stripContextBlocks(userText).trim();
-                if (!cleanText || cleanText.length < 5) return { prependContext: '' };
+                if (!cleanText || cleanText.length < 5) {
+                    try {
+                        require('fs').appendFileSync('/tmp/openclaw/memory-telemetry.jsonl',
+                            JSON.stringify({ timestamp: new Date().toISOString(), system: 'graph-memory', query: cleanText?.substring(0, 50) || '(empty)', resultCount: 0, injected: false, reason: 'too-short', rawLen: userText?.length || 0 }) + '\n');
+                    } catch (_) {}
+                    return { prependContext: '' };
+                }
 
                 // Run graph search (returns results with fact_ids now)
                 event._graphSearchStart = Date.now();
@@ -250,6 +256,10 @@ module.exports = {
                     ? [...entityMatched, ...ftsOnly]
                     : [];
                 if (filtered.length === 0) {
+                    try {
+                        require('fs').appendFileSync('/tmp/openclaw/memory-telemetry.jsonl',
+                            JSON.stringify({ timestamp: new Date().toISOString(), system: 'graph-memory', query: cleanText.substring(0, 200), latencyMs: Date.now() - event._graphSearchStart, resultCount: 0, entityMatched: 0, ftsOnly: ftsOnly.length, injected: false, reason: 'no-entity-match' }) + '\n');
+                    } catch (_) {}
                     return { prependContext: '' };
                 }
 
@@ -355,6 +365,10 @@ module.exports = {
 
             } catch (err) {
                 console.error(`[graph-memory] before_agent_start failed: ${err.message}`);
+                try {
+                    require('fs').appendFileSync('/tmp/openclaw/memory-telemetry.jsonl',
+                        JSON.stringify({ timestamp: new Date().toISOString(), system: 'graph-memory', query: '(error)', resultCount: 0, injected: false, error: err.message.substring(0, 200) }) + '\n');
+                } catch (_) {}
                 return { prependContext: '' };
             }
         }, { priority: 5 });

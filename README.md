@@ -411,8 +411,9 @@ Two OpenClaw plugins add runtime memory capabilities that operate **during** con
 Cross-session memory and conversation awareness. Runs as an OpenClaw gateway plugin.
 
 **What it does:**
-- **Conversation archive** — Stores all exchanges in SQLite with SQLite-vec embeddings (384d, `all-MiniLM-L6-v2`). Survives session resets.
+- **Conversation archive** — Stores all exchanges in SQLite with SQLite-vec embeddings. Survives session resets.
 - **Semantic search** — "What were we discussing about infrastructure last week?" searches across archived conversations, not just memory files.
+- **GPU-accelerated embeddings** — Uses llama.cpp with `nomic-embed-text-v1.5` (768d) when available, falling back to ONNX `all-MiniLM-L6-v2` (384d). The llama.cpp backend is 60x faster for indexing and 20x faster for search.
 - **Topic tracking** — Detects what topics are active, fixated (repeated too often), or fading. Injects `[CONTINUITY CONTEXT]` into prompts with session stats and active topics.
 - **Continuity anchors** — Detects identity moments, contradictions, and tensions in conversation. Preserves them through compaction.
 - **Context budgeting** — Priority-tiered token allocation. Recent turns get full text, older turns get compressed. Configurable pool ratios (essential/high/medium/low/minimal).
@@ -490,9 +491,37 @@ cd ../openclaw-plugin-stability && npm install
 # Add to plugins.entries:
 #   "continuity": { "enabled": true }
 #   "stability": { "enabled": true }
+#   "graph-memory": { "enabled": true }
 
 # Restart gateway
 openclaw gateway restart
+```
+
+### ⚠️ Critical: `plugins.allow` Allowlist
+
+If you set `plugins.allow` in your OpenClaw config (recommended for security), **every plugin you want to load must be on the list** — including graph-memory:
+
+```json
+{
+  "plugins": {
+    "allow": ["continuity", "stability", "graph-memory", "telegram", "discord"],
+    "entries": {
+      "continuity": { "enabled": true },
+      "stability": { "enabled": true },
+      "graph-memory": { "enabled": true }
+    }
+  }
+}
+```
+
+**Common gotcha:** Setting `"enabled": true` in entries is not enough. If `plugins.allow` exists and the plugin ID isn't listed, it silently won't load. No error, no warning — just missing `[GRAPH MEMORY]` context. You can verify by checking the `before_agent_start` handler count in gateway logs:
+
+```
+# 3 handlers = continuity + stability + graph-memory (correct)
+[hooks] running before_agent_start (3 handlers, sequential)
+
+# 2 handlers = graph-memory not loaded (check plugins.allow)
+[hooks] running before_agent_start (2 handlers, sequential)
 ```
 
 **Per-agent principles:** Add a `## Core Principles` section to each agent's SOUL.md for the stability plugin to track:
@@ -506,15 +535,87 @@ openclaw gateway restart
 
 **Source:** [CoderofTheWest](https://github.com/CoderofTheWest) — community-built OpenClaw plugins.
 
+## Search Telemetry
+
+Both plugins log search performance to `/tmp/openclaw/memory-telemetry.jsonl`. Each entry records which system handled the query, how long it took, result quality, and whether it was injected into context.
+
+```bash
+# Aggregate report — latency percentiles, hit rates, system contribution
+node scripts/memory-telemetry.js report
+
+# Golden query benchmark — 10 known-good queries, tests both systems
+node scripts/memory-telemetry.js benchmark
+
+# Live watch — see searches in real-time
+node scripts/memory-telemetry.js tail
+```
+
+**Sample report output:**
+```
+=== Memory Search Telemetry (42 queries) ===
+
+System               | Queries |  Hits |  Miss | Inject |  p50ms |  p95ms | AvgDist
+-------------------------------------------------------------------------------------
+continuity           |      30 |    30 |     0 |     28 |     12 |     25 |   0.371
+graph-memory         |      12 |     8 |     4 |      8 |     35 |     50 |     n/a
+
+--- System Contribution ---
+  continuity         | 78% of injections | 100% hit rate | 30 hits, 0 misses
+  graph-memory       | 22% of injections | 67% hit rate  | 8 hits, 4 misses
+```
+
+**Telemetry fields:**
+| Field | Description |
+|-------|-------------|
+| `system` | `continuity`, `graph-memory`, or `qmd-bm25` |
+| `latencyMs` | End-to-end search time |
+| `resultCount` | Results returned |
+| `topDistance` | Cosine distance of best match (continuity only, lower = better) |
+| `injected` | Whether results were injected into the LLM context |
+| `entityMatched` | Entity-matched results (graph-memory only) |
+| `reason` | Why results were dropped: `too-short`, `no-entity-match`, `error` |
+
 ## Embedding Options
 
-| Provider | Cost | Latency | Quality | Setup |
-|----------|------|---------|---------|-------|
-| **Ollama nomic-embed-text** | Free | 61ms | Good | `ollama pull nomic-embed-text` |
-| **QMD (built-in)** | Free | ~4s | Best (reranked) | Included with OpenClaw |
-| **OpenAI text-embedding-3-small** | ~$0.02/M tokens | ~200ms | Great | API key required |
+| Provider | Cost | Latency | Dims | Quality | Setup |
+|----------|------|---------|------|---------|-------|
+| **llama.cpp + nomic-embed-text-v1.5** | Free | **4ms** (GPU batch) | 768 | Best | Docker + GGUF model |
+| **Ollama nomic-embed-text** | Free | 61ms | 768 | Good | `ollama pull nomic-embed-text` |
+| **ONNX MiniLM-L6-v2** | Free | 240ms | 384 | Fair | Built into continuity plugin |
+| **QMD (built-in)** | Free | ~4s | — | Best (reranked) | Included with OpenClaw |
+| **OpenAI text-embedding-3-small** | ~$0.02/M tokens | ~200ms | 1536 | Great | API key required |
 
-**Recommendation:** Start with Ollama for zero cost and full local control. QMD adds reranking quality if you can tolerate the latency.
+**Recommendation:** If you have a GPU, use **llama.cpp** — it's 60x faster than ONNX and produces higher-quality 768d embeddings. The continuity plugin auto-detects it on `http://localhost:8082` (configurable via `LLAMA_EMBED_URL` env var) and falls back to ONNX if unavailable.
+
+### llama.cpp Embedding Server Setup
+
+```yaml
+# docker-compose.yml for dedicated embedding server
+services:
+  llama-embed:
+    image: ghcr.io/ggml-org/llama.cpp:server  # or ROCm variant
+    container_name: llama-embed
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./models:/models:ro
+    command: >
+      llama-server
+        -m /models/nomic-embed-text-v1.5-f16.gguf
+        --embedding
+        --pooling mean
+        -c 2048
+        -ngl 999
+        --host 0.0.0.0
+        --port 8080
+```
+
+Download the model: `huggingface-cli download nomic-ai/nomic-embed-text-v1.5-GGUF nomic-embed-text-v1.5.f16.gguf`
+
+**Important:** nomic-embed-text uses task prefixes. The continuity plugin handles this automatically:
+- Indexing: `search_document: <text>`
+- Querying: `search_query: <text>`
 
 ### GPU Setup (AMD ROCm)
 
