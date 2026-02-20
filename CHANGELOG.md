@@ -73,3 +73,28 @@
 - MEMORY.md + daily files pattern
 - Active-context.md working memory
 - Gating policies for failure prevention
+
+## 2026-02-20 — llama.cpp Embedding Backend + Telemetry
+
+### plugin-continuity (forked from CoderofTheWest/openclaw-plugin-continuity)
+- **BREAKING**: Replaced ONNX embedding (MiniLM-L6-v2, 384d) with llama.cpp GPU backend (nomic-embed-text-v1.5, 768d)
+- ONNX retained as fallback if llama.cpp server is unavailable
+- Fixed init order: embeddings initialize before table creation (prevents dimension mismatch)
+- Auto-detects dimension changes and recreates vector table
+- Added search telemetry logging to `/tmp/openclaw/memory-telemetry.jsonl`
+- Default dimensions changed from 384 → 768
+- Performance: 6.5ms avg search (was ~240ms), 12s full re-index (was ~6.5min)
+- Configurable via `LLAMA_EMBED_URL` env var (default: `http://localhost:8082`)
+
+### plugin-graph-memory
+- Added search telemetry logging (latency, result count, entity matches, FTS hits)
+- Added timing instrumentation on graph search
+
+### scripts/memory-telemetry.js (NEW)
+- `report` — aggregate stats by system (p50/p95 latency, hit rates, injection rates)
+- `benchmark` — 10 golden queries across both systems (currently scoring 100%)
+- `tail` — live telemetry watch
+
+### Infrastructure
+- New Docker container: `llama-embed` (llama.cpp + nomic-embed-text-v1.5-f16.gguf on ROCm GPU)
+- Managed via Komodo stack on port 8082
