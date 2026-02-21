@@ -14,6 +14,8 @@ A Postiz SKILL.md is 400+ lines. To schedule one LinkedIn post, the agent loads 
 ### 2. Poor discovery
 Skills are listed by name and a one-line description in the system prompt. The agent must decide whether to load a skill based on that description alone. If the description doesn't match the user's phrasing, the skill gets skipped. Complex skills with multiple capabilities are especially hard to discover — "Komodo" doesn't obviously map to "restart my Postiz container."
 
+A critical variant of this problem: **ownership mapping.** When all Docker containers are managed through Komodo, the agent needs to know that any Docker-related request means "use Komodo," not raw `docker` commands. The INDEX.md can state this ownership explicitly ("All Docker containers on aiserver are managed through Komodo"), creating a reliable mapping from user intent to skill selection.
+
 ### 3. No context awareness
 Skills describe generic capabilities but not what they manage. A Komodo skill knows how to call `DeployStack` but doesn't know which stacks exist, what they do, or how they relate to each other. That context lives in separate files (TOOLS.md, MEMORY.md) or in the agent's training data, disconnected from the skill.
 
