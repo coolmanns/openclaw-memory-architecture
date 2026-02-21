@@ -115,8 +115,13 @@ async function loadData() {
     const resp = await fetch('/api/graph');
     GRAPH_DATA = await resp.json();
   } catch(e) {
-    // Fallback: embedded data
-    console.log('Loading embedded data...');
+    try {
+      // Fallback: load from graph-data.json in same directory
+      const resp2 = await fetch('graph-data.json');
+      GRAPH_DATA = await resp2.json();
+    } catch(e2) {
+      console.log('No data source available');
+    }
   }
   if (!GRAPH_DATA) return;
   renderGraph();

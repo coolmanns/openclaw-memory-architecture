@@ -74,9 +74,13 @@ def extract_entity_candidates(query: str) -> list[str]:
             if re.search(pattern, query_lower):
                 candidates.append(alias)
     
-    # Possessive patterns: "someone's" → "Partner"
-    for match in re.finditer(r"(\w+)'s", query):
-        candidates.append(match.group(1))
+    # Possessive patterns: "someone's" → extract the entity name
+    # BUT skip common contractions like "who's", "what's", "where's", "when's", "how's"
+    CONTRACTION_SKIP = {"who", "what", "where", "when", "how", "it", "that", "there", "here"}
+    for match in re.finditer(r"(\w+)'s\b", query):
+        word = match.group(1).lower()
+        if word not in CONTRACTION_SKIP:
+            candidates.append(match.group(1))
     
     # Self-reference queries
     query_lower = query.lower()

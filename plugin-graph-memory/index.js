@@ -266,6 +266,7 @@ module.exports = {
         
         // Initialize query cache
         const queryCache = new QueryCache(config.cacheSize, config.cacheTTL);
+        queryCache.clear(); // Clear any stale cache on startup
         
         if (db) {
             const stats = db.prepare('SELECT COUNT(*) as cnt FROM co_occurrences').get();
@@ -332,6 +333,8 @@ module.exports = {
                     .filter(id => id != null && id > 0);
 
                 // Get activation scores and apply combined scoring
+                // IMPORTANT: Preserve tier separation - entity matches (score >= 65) 
+                // always rank above FTS-only matches regardless of activation
                 let scored = filtered;
                 if (db && factIds.length > 0) {
                     const activations = getActivations(db, factIds);
@@ -344,12 +347,21 @@ module.exports = {
                         const act = activations[r.fact_id] || 1.0;
                         const normAct = Math.min(act / maxAct, 1.0);
                         const normRelevance = r.score / 100; // search score is 0-100
-                        const combinedScore = (normRelevance * config.relevanceWeight)
+                        // Use tier-preserved scoring: entity matches get +100 boost
+                        const tierBoost = r.score >= 65 ? 100 : 0;
+                        const combinedScore = tierBoost + (normRelevance * config.relevanceWeight)
                                             + (normAct * config.activationWeight);
                         return { ...r, combinedScore, activation: act };
                     });
 
                     scored.sort((a, b) => b.combinedScore - a.combinedScore);
+                } else {
+                    // No DB: just sort by relevance score, but preserve tiers
+                    scored = filtered.sort((a, b) => {
+                        const tierDiff = (b.score >= 65 ? 1 : 0) - (a.score >= 65 ? 1 : 0);
+                        if (tierDiff !== 0) return tierDiff;
+                        return b.score - a.score;
+                    });
                 }
 
                 const topResults = scored.slice(0, config.maxResults);
@@ -465,6 +477,9 @@ function _stripContextBlocks(text) {
     // Strategy: find the last metadata/context marker, take everything after it as user text.
     // Markers: ```\n (end of JSON block), "Speak from this memory naturally.", System: lines
     
+    // DEBUG: Log raw input
+    console.log(`[graph-memory:strip] RAW INPUT (${text.length} chars): "${text.substring(0, 100)}..."`);
+    
     let result = text;
     
     // Approach: split on known end-of-metadata patterns and take the last segment
@@ -492,6 +507,7 @@ function _stripContextBlocks(text) {
             .replace(/^\[CONTINUITY CONTEXT\][\s\S]*?(?=\n\n)/gm, '')
             .replace(/^\[GRAPH MEMORY\][\s\S]*?(?=\n\n)/gm, '')
             .trim();
+        console.log(`[graph-memory:strip] After fence clean: "${cleaned.substring(0, 100)}..." (${cleaned.length} chars)`);
         console.log(`[graph-memory] strip: afterFence="${afterFence.substring(0, 80)}" cleaned="${cleaned.substring(0, 80)}" len=${cleaned.length}`);
         if (cleaned.length >= 3) {
             return cleaned;
