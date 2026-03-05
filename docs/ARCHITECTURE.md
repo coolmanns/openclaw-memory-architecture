@@ -102,6 +102,34 @@ This architecture runs on a production deployment with **14 OpenClaw agents**. K
 
 Each agent has its own session, SOUL.md, and principle set. When an agent resets or compacts, it loses session history — but file-based memory (Layers 1–9) and plugin memory (Layers 10–12) persist.
 
+## Data Isolation & Trust Boundaries
+
+**Current model: Single-human, shared knowledge.**
+
+| Memory Layer | Isolation | Notes |
+|-------------|-----------|-------|
+| Continuity (conversation history) | **Per-agent** | Each agent's conversation DB is scoped by `agentId`. Agent A cannot retrieve Agent B's conversations. |
+| facts.db (structured knowledge) | **Shared** | All agents query the same facts.db. A fact about "Sascha" is visible to every agent. |
+| File-vec (workspace documents) | **Shared** | All agents index the same workspace directory tree. |
+| MEMORY.md / USER.md | **Per-agent** (by convention) | Only the main agent loads these. Other agents could read them — it's file-level, not enforced. |
+| Daily notes (memory/*.md) | **Shared** | All agents can read/write daily notes. No namespace enforcement. |
+
+### Security Implications
+
+**Prompt injection via stored conversations:** Continuity injects raw `userText` and `agentText` into the next session's context without sanitization. In a single-user setup, this is low risk — you're injecting your own past words. In a multi-user or multi-tenant deployment, a malicious user could store prompt injection payloads in conversation history that surface in future sessions.
+
+**Cross-agent knowledge leakage:** facts.db and file-vec are shared. If Agent A learns something sensitive (e.g., from a private Discord channel), it becomes queryable by Agent B. This is currently a feature (shared knowledge = smarter agents) but becomes a liability in multi-tenant deployments.
+
+### Future Design Fork
+
+For distributing this architecture to other OpenClaw users, the key decision is:
+
+1. **Fully isolated** — each agent gets its own facts.db, file-vec index, daily notes. Safest, simplest trust model. Agents are independent.
+2. **Fully shared** — current model. All agents share all knowledge. Most capable. Requires trusting all agents equally.
+3. **Scoped sharing** — agents opt into knowledge namespaces. Personal facts shared, project facts scoped per team, sensitive facts isolated. Most flexible but most complex.
+
+This decision should be made before shipping multi-agent deployments. For single-human setups (the current use case), fully shared is correct.
+
 ## Layers
 
 ### Layer 1: Always-Loaded Context
@@ -148,7 +176,18 @@ Each agent has its own session, SOUL.md, and principle set. When an agent resets
 
 ### Layer 4: Structured Facts (SQLite + FTS5)
 
-**`memory/facts.db`** — Entity/key/value store for precise lookups.
+**`~/.openclaw/data/facts.db`** — Single source of truth. Entity/key/value store for precise lookups.
+
+> **v2.2 change:** Consolidated from dual-DB (workspace + core) to single DB at `~/.openclaw/data/facts.db`. Both continuity (reads) and metabolism (writes) use this path. The old `~/clawd/memory/facts.db` no longer exists.
+
+**14 enforced categories:**
+- People: `person`, `family`, `friend`, `pet`
+- Knowledge: `psychedelic`, `reference`
+- Tech: `project`, `infrastructure`, `tool`
+- Decisions: `decision`, `preference`, `convention`
+- Ops: `automation`, `workflow`
+
+Born permanent: `family`, `friend`, `person`, `pet`, `psychedelic`, `decision`, `preference`
 
 ```sql
 CREATE TABLE facts (
@@ -156,11 +195,13 @@ CREATE TABLE facts (
     entity TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
-    category TEXT NOT NULL,
+    category TEXT NOT NULL,       -- enforced: 14 valid categories
     source TEXT,
     created_at TEXT NOT NULL,
-    activation REAL DEFAULT 1.0,      -- Decay-based score
-    importance REAL DEFAULT 0.5,      -- Retention weight
+    permanent BOOLEAN DEFAULT 0,
+    decay_score REAL DEFAULT 1.0,
+    activation REAL DEFAULT 0.0,  -- Hebbian: bumped on retrieval
+    importance REAL DEFAULT 0.5,  -- retention weight
     access_count INTEGER DEFAULT 0
 );
 
@@ -168,12 +209,23 @@ CREATE TABLE relations (
     subject TEXT NOT NULL,
     predicate TEXT NOT NULL,
     object TEXT NOT NULL,
-    source TEXT,
-    created_at TEXT
+    source TEXT DEFAULT 'metabolism',
+    category TEXT DEFAULT 'person',
+    permanent BOOLEAN DEFAULT 1,
+    activation REAL DEFAULT 0.0,
+    decay_score REAL DEFAULT 1.0
 );
 
 CREATE TABLE aliases (
-    alias TEXT PRIMARY KEY,
+    alias TEXT NOT NULL COLLATE NOCASE,
+    entity TEXT NOT NULL COLLATE NOCASE,
+    PRIMARY KEY (alias, entity)
+);
+
+CREATE TABLE facts_changelog (  -- audit trail
+    entity TEXT, key TEXT, operation TEXT,
+    old_value TEXT, new_value TEXT, source TEXT, timestamp TEXT
+);
     entity TEXT NOT NULL
 );
 

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMA — Meta-Cognitive Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+    --fg: #c9d1d9; --fg2: #8b949e; --fg3: #484f58;
+    --accent: #58a6ff; --green: #3fb950; --amber: #d29922; --red: #f85149;
+    --border: #30363d; --radius: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro', system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  .app { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
+
+  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .conn-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg2); }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .conn-dot.ok { background: var(--green); }
+  .conn-dot.err { background: var(--red); }
+  .mode-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; background: rgba(63,185,80,0.15); color: var(--green); margin-left: auto; }
+
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); overflow-y: auto; }
+  @media (max-width: 768px) { main { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--bg2); padding: 16px; overflow-y: auto; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; color: var(--fg2); margin-bottom: 12px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+  .panel h2 .count { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--bg3); color: var(--fg2); }
+
+  .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+  .card:hover { border-color: var(--fg3); }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .card-title { font-size: 13px; font-weight: 600; }
+  .card-meta { font-size: 11px; color: var(--fg2); }
+  .card-body { font-size: 12px; color: var(--fg2); line-height: 1.5; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .stat-box { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; text-align: center; }
+  .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.red { color: var(--red); }
+  .stat-label { font-size: 11px; color: var(--fg2); margin-top: 2px; }
+
+  .entropy-bar { height: 6px; border-radius: 3px; background: var(--bg3); margin-top: 4px; overflow: hidden; }
+  .entropy-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .entropy-fill.low { background: var(--green); }
+  .entropy-fill.mid { background: var(--amber); }
+  .entropy-fill.high { background: var(--red); }
+
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; background: rgba(88,166,255,0.15); color: var(--accent); margin-right: 4px; margin-bottom: 2px; }
+  .tag.insight { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag.pattern { background: rgba(210,153,34,0.15); color: var(--amber); }
+
+  .priority { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 8px; }
+  .priority.high { background: rgba(248,81,73,0.15); color: var(--red); }
+  .priority.medium { background: rgba(210,153,34,0.15); color: var(--amber); }
+  .priority.low { background: rgba(63,185,80,0.15); color: var(--green); }
+
+  footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 20px; font-size: 11px; color: var(--fg2); flex-wrap: wrap; }
+  .footer-stat { display: flex; align-items: center; gap: 4px; }
+  .footer-label { color: var(--fg3); }
+
+  .empty { text-align: center; padding: 20px; color: var(--fg3); font-size: 13px; }
+
+  .vector-card { cursor: pointer; }
+  .vector-card .card-body { max-height: 0; overflow: hidden; transition: max-height 0.2s; }
+  .vector-card.open .card-body { max-height: 200px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🧙‍♂️ OMA Dashboard</h1>
+    <div class="conn-status">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connText">Loading...</span>
+    </div>
+    <span class="mode-badge" id="modeBadge">Training</span>
+  </header>
+
+  <main>
+    <!-- Left column: Stability + Metabolism -->
+    <div>
+      <div class="panel" id="stabilityPanel">
+        <h2>⚖️ Stability</h2>
+        <div id="stabilityContent"><div class="empty">Loading...</div></div>
+      </div>
+      <div class="panel" id="metabolismPanel">
+        <h2>🧬 Metabolism <span class="count" id="metaCount">—</span></h2>
+        <div id="metabolismContent"><div class="empty">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- Right column: Growth Vectors + Candidates -->
+    <div>
+      <div class="panel" id="vectorsPanel">
+        <h2>📈 Growth Vectors <span class="count" id="vecCount">—</span></h2>
+        <div id="vectorsContent"><div class="empty">Loading...</div></div>
+      </div>
+      <div class="panel" id="candidatesPanel">
+        <h2>🌱 Candidates <span class="count" id="candCount">—</span></h2>
+        <div id="candidatesContent"><div class="empty">Loading...</div></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-stat"><span class="footer-label">Entropy:</span><span id="footEntropy">—</span></div>
+    <div class="footer-stat"><span class="footer-label">Alignment:</span><span id="footAlignment">—</span></div>
+    <div class="footer-stat"><span class="footer-label">Pending:</span><span id="footPending">—</span></div>
+    <div class="footer-stat"><span class="footer-label">Processed:</span><span id="footProcessed">—</span></div>
+    <div class="footer-stat"><span class="footer-label">Updated:</span><span id="footTime">—</span></div>
+  </footer>
+</div>
+
+<script>
+(function() {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  let refreshTimer = null;
+
+  async function fetchState() {
+    try {
+      const res = await fetch('/api/state');
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+      render(data);
+      $('#connDot').className = 'conn-dot ok';
+      $('#connText').textContent = 'Connected';
+    } catch(e) {
+      $('#connDot').className = 'conn-dot err';
+      $('#connText').textContent = 'Error: ' + e.message;
+    }
+  }
+
+  function render(data) {
+    renderStability(data.stability);
+    renderMetabolism(data.metabolism);
+    renderVectors(data.vectors);
+    renderCandidates(data.vectors);
+    renderFooter(data);
+  }
+
+  function renderStability(s) {
+    if (!s?.state) { $('#stabilityContent').innerHTML = '<div class="empty">No stability data</div>'; return; }
+    const st = s.state;
+    const entropy = st.entropy ?? st.currentEntropy ?? 0;
+    const alignment = st.alignment ?? 'unknown';
+    const principles = s.principles?.principles || st.principles || [];
+    const entropyClass = entropy > 0.7 ? 'high' : entropy > 0.4 ? 'mid' : 'low';
+    
+    let html = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-value ${entropy > 0.7 ? 'red' : entropy > 0.4 ? 'amber' : 'green'}">${entropy.toFixed(2)}</div>
+          <div class="stat-label">Entropy</div>
+          <div class="entropy-bar"><div class="entropy-fill ${entropyClass}" style="width:${entropy*100}%"></div></div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value green" style="font-size:16px">${alignment}</div>
+          <div class="stat-label">Alignment</div>
+        </div>
+      </div>`;
+    
+    if (principles.length > 0) {
+      html += '<div style="margin-top:8px">';
+      principles.forEach(p => {
+        const name = typeof p === 'string' ? p : p.name || p;
+        html += `<span class="tag">${escHtml(name)}</span>`;
+      });
+      html += '</div>';
+    }
+    
+    $('#stabilityContent').innerHTML = html;
+  }
+
+  function renderMetabolism(m) {
+    if (!m) { $('#metabolismContent').innerHTML = '<div class="empty">No metabolism data</div>'; return; }
+    $('#metaCount').textContent = `${m.pending} pending`;
+    
+    let html = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-value ${m.pending > 10 ? 'amber' : 'green'}">${m.pending}</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value green">${m.processed}</div>
+          <div class="stat-label">Processed</div>
+        </div>
+      </div>`;
+    
+    if (m.recentProcessed?.length > 0) {
+      html += '<h3 style="font-size:11px;color:var(--fg3);margin:8px 0 4px;text-transform:uppercase">Recent</h3>';
+      m.recentProcessed.reverse().forEach(p => {
+        const dest = p.result?.destination || '—';
+        const imp = p.result?.implicationCount || 0;
+        const facts = p.result?.factCount || 0;
+        const time = p.timestamp ? new Date(p.timestamp).toLocaleTimeString() : '';
+        html += `<div class="card">
+          <div class="card-header">
+            <span class="card-title">${escHtml(p.id?.substring(0,25) || '?')}...</span>
+            <span class="card-meta">${time}</span>
+          </div>
+          <div class="card-body">→ ${dest} | ${imp} implications, ${facts} facts | entropy ${(p.entropy||0).toFixed(2)}</div>
+        </div>`;
+      });
+    }
+    
+    $('#metabolismContent').innerHTML = html;
+  }
+
+  function renderVectors(v) {
+    const vectors = v?.vectors || [];
+    $('#vecCount').textContent = vectors.length;
+    
+    if (vectors.length === 0) { $('#vectorsContent').innerHTML = '<div class="empty">No growth vectors yet</div>'; return; }
+    
+    // Group by area
+    const grouped = {};
+    vectors.forEach(vec => {
+      const area = vec.area || 'uncategorized';
+      if (!grouped[area]) grouped[area] = [];
+      grouped[area].push(vec);
+    });
+    
+    let html = '';
+    Object.entries(grouped).sort((a,b) => b[1].length - a[1].length).forEach(([area, vecs]) => {
+      const priority = vecs[0].priority || 'medium';
+      html += `<div class="card vector-card" onclick="this.classList.toggle('open')">
+        <div class="card-header">
+          <span class="card-title">${escHtml(area)}</span>
+          <span class="priority ${priority}">${priority}</span>
+        </div>
+        <div class="card-meta">${vecs.length} vector${vecs.length>1?'s':''}</div>
+        <div class="card-body">`;
+      vecs.forEach(vec => {
+        html += `<div style="margin-top:4px">↗ ${escHtml(vec.direction || '')}</div>`;
+      });
+      html += '</div></div>';
+    });
+    
+    $('#vectorsContent').innerHTML = html;
+  }
+
+  function renderCandidates(v) {
+    const candidates = v?.candidates || [];
+    $('#candCount').textContent = candidates.length;
+    
+    if (candidates.length === 0) { $('#candidatesContent').innerHTML = '<div class="empty">No candidates</div>'; return; }
+    
+    let html = '';
+    candidates.sort((a,b) => (b.weight||0) - (a.weight||0)).forEach(c => {
+      const typeClass = c.type === 'insight' ? 'insight' : c.type === 'pattern_recognition' ? 'pattern' : '';
+      html += `<div class="card">
+        <div class="card-header">
+          <span class="tag ${typeClass}">${c.type || 'unknown'}</span>
+          <span class="card-meta">w=${(c.weight||0).toFixed(2)} | ${c.validation_status || '?'}</span>
+        </div>
+        <div class="card-body" style="max-height:none">${escHtml(c.text || '')}</div>
+      </div>`;
+    });
+    
+    $('#candidatesContent').innerHTML = html;
+  }
+
+  function renderFooter(data) {
+    const s = data.stability?.state;
+    const m = data.metabolism;
+    $('#footEntropy').textContent = s ? (s.entropy ?? s.currentEntropy ?? 0).toFixed(2) : '—';
+    $('#footAlignment').textContent = s?.alignment ?? '—';
+    $('#footPending').textContent = m ? m.pending : '—';
+    $('#footProcessed').textContent = m ? m.processed : '—';
+    $('#footTime').textContent = new Date().toLocaleTimeString();
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Initial load + auto-refresh
+  fetchState();
+  refreshTimer = setInterval(fetchState, 15000);
+})();
+</script>
+</body>
+</html>

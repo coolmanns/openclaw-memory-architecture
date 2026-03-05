@@ -2,7 +2,7 @@
 
 > Institutional knowledge for the memory architecture project.
 > GitHub: `coolmanns/openclaw-memory-architecture` (public)
-> Last updated: 2026-02-17
+> Last updated: 2026-03-04
 
 ## Mission
 
@@ -25,6 +25,22 @@ Provide a reusable, multi-layered memory system for OpenClaw agents that combine
 3. **Importance tagging** — i≥0.8 permanent, 0.4-0.8 kept 30 days, <0.4 pruned after 7 days
 4. **Active context** — <2KB working memory, updated every session
 5. **Gating policies** — failure prevention rules learned from actual mistakes
+
+## Facts Architecture (consolidated 2026-03-04)
+
+Single source of truth:
+
+| Component | Path/Detail |
+|-----------|-------------|
+| **Core facts.db** | `~/.openclaw/data/facts.db` — single DB, Hebbian schema |
+| **Writer** | Metabolism via `insert-facts.js` — every 5 min, Qwen3-4B, 10 guardrails |
+| **Readers** | Continuity FactsSearcher, Mission Control Facts Graph, `memory_search` tool |
+| **Guardrails** | `~/clawd/config/memory-guardrails.json` — blocked keys/entities/patterns, category caps |
+| **Schema** | Auto-increment ID, Hebbian (decay_score, activation, importance), FTS5, changelog, co-occurrences |
+
+- Workspace `~/clawd/memory/facts.db` retired (renamed `.retired-20260304`)
+- `insert-facts.js` adapted for core schema (separate INSERT/UPDATE, Hebbian defaults, FTS row updates)
+- Guardrails tightened: blocks `.js`/`.md`/`.db` entities, plugin internals, agent metadata
 
 ## What's Been Shared
 

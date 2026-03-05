@@ -1,5 +1,25 @@
 # Benchmark Results
 
+> Two benchmarks exist:
+> - **production-benchmark.js** — tests actual runtime systems (continuity vec/BM25, file-vec, facts.db, root files). **This is the real one.**
+> - **memory-benchmark.py** — tests QMD/graph search in isolation (synthetic, doesn't reflect production)
+
+## Production Benchmark: 60/60 (100%)
+
+Run: 2026-02-22 · 60 queries · 5 search systems
+
+| System | Hits | Coverage | Role |
+|--------|------|----------|------|
+| Root files | 57/60 | 95% | Always-loaded workspace files (SOUL.md, USER.md, etc.) |
+| File-vec | 53/60 | 88% | Semantic search over indexed workspace files (768d nomic-embed) |
+| Continuity BM25 | 48/60 | 80% | Keyword search over past conversation exchanges |
+| Continuity vec | 44/60 | 73% | Semantic search over past conversations |
+| Facts DB | 31/60 | 52% | Entity/alias resolution (Mama→Heidi, JoJo→Johanna) |
+
+---
+
+## Legacy Benchmark (QMD + graph-search.py)
+
 > 60 queries · top-6 recall · hybrid method (knowledge graph + QMD BM25)
 
 ## Final Score: 60/60 (100%)

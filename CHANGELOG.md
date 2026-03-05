@@ -1,5 +1,94 @@
 # Changelog
 
+## v2.2 — Single-DB Consolidation + Category Taxonomy (2026-03-05)
+
+### Breaking: Single facts.db
+- **Consolidated dual-DB to single DB** at `~/.openclaw/data/facts.db`
+- Old workspace path (`~/clawd/memory/facts.db`) eliminated
+- Continuity's `facts-searcher.js` repointed to core DB (default path change)
+- Metabolism's `insert-facts.py` repointed to core DB
+- `insert-facts.js` was already repointed on 2026-03-04
+- Rationale: dual-DB caused split-brain — writes went to one, reads from another
+
+### Category Taxonomy (14 categories, enforced)
+- **New categories:** `family`, `friend` (split from `person`)
+- **Removed:** `people` (duplicate of `person`), `operational` (too vague), `fact` (catch-all), `facts-db` (meta noise), `category` (meta noise), `concept` (too vague)
+- **Final 14:** `person`, `family`, `friend`, `pet`, `psychedelic`, `reference`, `project`, `infrastructure`, `tool`, `decision`, `preference`, `convention`, `automation`, `workflow`
+- Guardrail: `VALID_CATEGORIES` in `insert-facts.py` — metabolism cannot invent categories
+- Migration: 91 facts → family, 13 → friend, 10 junk rows remapped/deleted
+
+### Schema Updates
+- `schema/facts.sql` updated to v3: includes `facts_changelog` table, enhanced `relations` with activation/decay, documented category taxonomy
+- `docs/ARCHITECTURE.md` updated for single-DB, 14 categories
+- `docs/tuning-knobs.md` updated stable/transient category lists
+
+### Cleanup
+- Removed `plugin-continuity-fix/` (patches upstreamed)
+- Removed `plugin-graph-memory/` (retired — replaced by integrated facts search in continuity)
+- Removed `.DS_Store` files
+
+---
+
+## v8.0 — Benchmark Overhaul + Search Telemetry (2026-02-22)
+
+### Benchmark
+
+**Fixed:**
+- Old benchmark (`memory-benchmark.py`) had 26/60 queries pointing at nonexistent files
+- Root file fallback was matching stop words, inflating scores for irrelevant files
+- QMD called via `search` (BM25-only) instead of `query` (hybrid with reranking)
+
+**Added:**
+- `scripts/production-benchmark.js` — tests all 5 production search systems
+  - Continuity vec (semantic similarity over conversation history)
+  - Continuity BM25 (FTS5 keyword search over exchanges)
+  - File-vec (semantic search over 210+ indexed workspace files)
+  - Facts DB (entity/alias resolution with Hebbian activation)
+  - Root files (always-loaded workspace files)
+- Keyword-based evaluation (checks for expected content, not file paths)
+- Per-system contribution tracking
+
+**Found:**
+- vec0 virtual table JOIN bug (`v.rowid` → `v.id`) — vector search showed 0 results in benchmark but worked fine in production
+- Production result: **60/60 (100%)** across all 7 categories
+
+### Search Telemetry
+
+**Added:**
+- Per-system timing instrumentation in continuity plugin's `before_agent_start` hook
+- `~/.openclaw/data/search-telemetry.db` — logs every search with system, latency, result count, top distance, facts methods
+- `scripts/search-telemetry-report.sh` — SQLite report: per-system performance, hourly breakdown, slow queries, zero-result queries, facts method distribution
+
+### Documentation
+- `docs/2026-02-22-session-report.md` — full session write-up with findings and architecture insights
+
+---
+
+## v7.0 — Hebbian Integration + FileIndexer + facts.db Hygiene (2026-02-22)
+
+### Hebbian Memory (facts.db → Runtime)
+- Ported `graph-search.py` to Node.js as `facts-searcher.js` inside continuity plugin
+- Hooked into `before_agent_start` — facts injected as "From your knowledge base:" block
+- Hebbian mechanics active: +0.5 activation per retrieval, co-occurrence wiring, daily 0.95 decay
+- Removed standalone graph-memory plugin (replaced by integrated facts search)
+
+### FileIndexer (QMD Replacement)
+- Built `storage/file-indexer.js` in continuity plugin
+- 210 files, 732 chunks, 768d nomic embeddings via localhost:8082
+- Incremental re-index via mtime, cron every 5 min
+- Results injected as "From your documents:" in context
+
+### facts.db Hygiene
+- Cleaned 4 junk values, 23 semantic dupes, pruned 222 cold facts
+- Insert-time guards: semantic dedup (80% word overlap), junk filter, 500-fact cap
+- Stable categories (person, pet, preference) exempt from decay
+- Relations table: 36 subject/predicate/object triples for family, friends, pets
+
+### active-context.md Cleanup
+- 156 lines → 22 lines (P1 cap at 25, insert-time dedup)
+
+---
+
 ## v6.0 — Embedding Migration + Graph Plugin + Decay System (2026-02-20)
 
 ### Embedding Stack Migration
