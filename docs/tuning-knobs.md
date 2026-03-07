@@ -26,18 +26,20 @@
 | Junk patterns | `insert-facts.js` → `JUNK_PATTERNS` | 7 patterns | Values matching these are rejected on insert |
 | Blocked keys | `memory-guardrails.json` or fallback in code | status, pid, topic, etc. | Keys that are never inserted |
 | Blocked entities | `memory-guardrails.json` or fallback | User, System, Plugin, Session | Entity names that are rejected |
-| Valid categories | `insert-facts.py` → `VALID_CATEGORIES` | 14 categories | person, family, friend, pet, psychedelic, reference, project, infrastructure, tool, decision, preference, convention, automation, workflow |
+| Valid categories | `insert-facts.js` → `VALID_CATEGORIES` | 14 categories | person, family, friend, pet, psychedelic, reference, project, infrastructure, tool, decision, preference, convention, automation, workflow |
 | Hebbian decay rate | `continuity/index.js` | 0.95/day | How fast unused facts lose activation (lower = faster decay) |
 | Decay floor | `continuity/index.js` | 0.01 | Facts below this get pruned on next cap enforcement |
+| Numeric value filter | `insert-facts.js` | regex `/^[\d.\-]+$/` | Reject pure numeric values/IPs |
+| Entity min length | `insert-facts.js` | 2 chars | Entities shorter than this are rejected |
 | Person fact cap | `insert-facts.js` | 2 per entity+key | Max entries for same person + same key |
 | Relations per candidate | `processor.js` parser | 5 max | Max relationship triples extracted per conversation |
 | Blocked predicates | `processor.js` parser | related_to, associated_with, connected_to, involves | Generic predicates rejected on parse |
 | Stable predicates | `processor.js` routing | family/location predicates | Born permanent (partner_of, father_of, lives_in, etc.) |
-| Stable categories | `insert-facts.py` → born permanent | family, friend, person, pet, psychedelic, decision, preference | Born permanent, never decay. Relationships, preferences, and key decisions are protected. |
+| Stable categories | `insert-facts.js` → born permanent | family, friend, person, pet, psychedelic, decision, preference | Born permanent, never decay. Relationships, preferences, and key decisions are protected. |
 
 **Stable vs transient categories:** Family/friend/person/pet/psychedelic/decision/preference facts represent enduring knowledge (relationships, birthdays, legal boundaries). They're marked permanent on insert and exempt from decay+pruning. Infrastructure/project/tool/automation/workflow/convention/reference facts are transient — they decay naturally and get pruned when the cap is hit.
 
-**Category enforcement:** The `VALID_CATEGORIES` set in `insert-facts.py` is the guardrail. Metabolism cannot invent new categories — facts with invalid categories are rejected at insert time. Added 2026-03-05.
+**Category enforcement:** The `VALID_CATEGORIES` set in `insert-facts.js` is the sole guardrail. `insert-facts.py` has been retired (2026-03-05). Metabolism cannot invent new categories — facts with invalid categories are rejected at insert time. The JS path also rejects pure numeric values and entities shorter than 2 characters. Total guardrails: 13 (up from 10).
 
 **Scaling concern:** At 500 cap with 5+ active projects, each project gets ~60-80 fact slots (after permanent facts take 146). If projects grow significantly, consider raising to 750.
 

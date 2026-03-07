@@ -1,5 +1,40 @@
 # Changelog
 
+## v2.3 — Contemplation Pipeline + Metabolism Gap Extraction (2026-03-06)
+
+### Contemplation Plugin (installed)
+- Installed from `github.com/CoderofTheWest/openclaw-metacognitive-suite`
+- Three-pass inquiry pipeline: explore (immediate) → reflect (4h) → synthesize (20h)
+- LLM: Qwen3-30B via local llama.cpp (shared with metabolism)
+- Heartbeat-driven pass execution (no nightshift dependency)
+- Growth vectors output to `memory/growth-vectors.json` for crystallization
+
+### Metabolism → Contemplation Pipeline (fixed)
+- **Bug:** Metabolism extracted gaps but never forwarded them — `gapListeners.forEach()` call was missing from `index.js`
+- **Bug:** Gap detection used regex on declarative implications — only 2 matches in 2,900+ candidates
+- **Bug:** Conversation extractor entropy threshold (0.5) too high for typical sessions (0.15-0.30)
+- **Fix:** Added `GAPS:` section to metabolism LLM prompt — explicit knowledge gap extraction as questions
+- **Fix:** Added `GAPS:` parsing in `_parseGatedResponse()` with regex `_extractGaps()` fallback
+- **Fix:** Wired `gapListeners.forEach()` in metabolism `index.js` after `processBatch()`
+- **Validated:** 3 candidates → 6 gaps extracted, first contemplation inquiry queued
+
+### Metabolism Quality (Task #97)
+- `_stripMetadata()` — strips CONTINUITY/STABILITY context blocks before LLM processing
+- `_normalizeEntity()` — resolves aliases from facts.db (e.g., "Sascha" → "Sascha Kuhlmann")
+- `_inferRelationCategory()` — derives category from predicate instead of hardcoding 'person'
+- Entity normalization wired into facts and relations parsing
+- 18 tests covering metadata stripping, parsing, category inference, entity normalization
+
+### Facts Cleanup
+- 772 facts (up from ~500 pre-metabolism)
+- 58 recategorized, 53 entity merges, 2 dupes deleted
+- Category caps raised: person 125, project 175, infrastructure 150, family 125
+
+### Metacognitive Stack Status
+Running 4/7 CoderofTheWest plugins: stability, continuity, metabolism, contemplation. Graph installed (untracked). Nightshift skipped (using cron). Crystallization next (Task #92, after contemplation proven).
+
+---
+
 ## v2.2 — Single-DB Consolidation + Category Taxonomy (2026-03-05)
 
 ### Breaking: Single facts.db

@@ -430,6 +430,24 @@ Session work → phase close → project-{slug}.md
 
 ## Changelog
 
+### v6.1 — Metabolism Consolidation (2026-03-05)
+
+**insert-facts.js is now the sole insert path:**
+- Retired `insert-facts.py` — JS runs in-process with no spawn overhead
+- Ported all Python guardrails to JS: VALID_CATEGORIES strict allowlist, numeric value filter, entity min length
+- Added 16 additional blocked keys (gateway_status, node_status, model_setting, etc.)
+- Total guardrails: 13 (up from 10)
+
+**Growth vector pipeline fixed:**
+- Root cause: in-gateway heartbeat processing never fired — candidates queued but never processed
+- Actual processing done by `metabolism-cron.js` (every 5 min), which lacked growth vector write logic
+- Fix: Added growth vector collection and file write to `metabolism-cron.js`
+- Growth vectors now flow to `memory/growth-vectors.json` → OMA Dashboard
+
+**Metabolism fork:**
+- Plugin forked to `coolmanns/openclaw-plugin-metabolism` (upstream: `CoderofTheWest`)
+- All customizations (guardrails, config, processor) committed to fork
+
 ### v6.0 — Embedding Migration + Graph Plugin (2026-02-20)
 
 **Embedding stack migration:**

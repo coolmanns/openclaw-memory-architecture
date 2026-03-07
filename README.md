@@ -185,6 +185,10 @@ git clone https://github.com/CoderofTheWest/openclaw-plugin-continuity.git
 git clone https://github.com/CoderofTheWest/openclaw-plugin-stability.git
 git clone https://github.com/CoderofTheWest/openclaw-plugin-graph-memory.git
 
+# Optional: metacognitive stack (contemplation + crystallization)
+git clone https://github.com/CoderofTheWest/openclaw-metacognitive-suite.git
+cp -r openclaw-metacognitive-suite/openclaw-plugin-contemplation .
+
 # Install dependencies
 for d in openclaw-plugin-*; do cd "$d" && npm install && cd ..; done
 ```
@@ -221,11 +225,32 @@ Enable in `~/.openclaw/openclaw.json`:
 
 The 96GB unified VRAM enables running large models without swapping. Smaller setups (8-16GB) work fine — just use llama.cpp alone without QMD.
 
+## Metacognitive Pipeline (v2.3)
+
+Beyond storage and recall, the architecture includes a metacognitive loop that lets the agent learn from its own conversations:
+
+```
+Conversation → Metabolism (extract facts + gaps)
+                    ↓
+              Contemplation (3-pass refinement over 24h)
+                    ↓
+              Growth Vectors (behavioral patterns)
+                    ↓
+              Crystallization (permanent traits — 30+ day gate)
+```
+
+- **Metabolism** — LLM-based extraction of facts, implications, and knowledge gaps from every high-entropy conversation. Writes to facts.db and forwards gaps to contemplation.
+- **Contemplation** — Three-pass inquiry pipeline (explore → reflect → synthesize). Each gap gets examined over ~24 hours before producing a refined growth vector.
+- **Crystallization** — Promotes growth vectors to permanent character traits after 30+ days of consistent evidence. Requires human approval.
+
+The pipeline runs on local LLM (Qwen3-30B via llama.cpp) with zero external API cost.
+
 ## Documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Full layer documentation
 - [`docs/knowledge-graph.md`](docs/knowledge-graph.md) — Graph search, benchmarks
 - [`docs/context-optimization.md`](docs/context-optimization.md) — Token trimming methodology
+- [`docs/adr/`](docs/adr/) — Architecture Decision Records
 - [`CHANGELOG.md`](CHANGELOG.md) — Version history
 
 ## Credits
@@ -234,7 +259,7 @@ This architecture was informed by:
 - **David Badre** — *On Task: How the Brain Gets Things Done*
 - **Shawn Harris** — [Building a Cognitive Architecture for Your OpenClaw Agent](https://shawnharris.com/building-a-cognitive-architecture-for-your-openclaw-agent/) — Memory gating, active-context patterns, gating policies
 - **r/openclaw community** — [How I Built a Memory System That Actually Works](https://old.reddit.com/r/openclaw/comments/1r7nd4y/how_i_built_a_memory_system_that_actually_works/) — Hybrid search benchmarking
-- **CoderofTheWest** — Continuity, stability, and metabolism plugins
+- **CoderofTheWest** — Continuity, stability, metabolism, contemplation, and crystallization plugins
 
 ## Changelog
 
