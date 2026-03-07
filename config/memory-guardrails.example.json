@@ -1,0 +1,82 @@
+{
+  "_doc": "Shared guardrails config for memory quality gates. Used by metabolism insert, graph cleanup, and graph extractor.",
+  "_updated": "2026-03-04",
+
+  "blocked_keys": [
+    "status", "pid", "last_restart", "gateway_status", "last_indexed",
+    "last-indexed", "indexed_files", "indexed-files", "vector_embeddings",
+    "embedded-vectors", "index_size", "index-size", "feature", "action",
+    "topic", "concern", "topic_fixation", "data_quality", "data_quality_issue",
+    "graph_status", "extractor_sanitization", "current_time", "last_seen",
+    "node_status", "node_capabilities", "configured_model", "config_issue",
+    "model_setting", "backfill_issue"
+  ],
+
+  "blocked_entities": [
+    "User", "user", "System", "Plugin", "Session", "Conversation",
+    "Graph Plugin", "Extractor", "Entity", "Infrastructure",
+    "Agent", "Subagent", "Auditor", "Container", "File", "Image",
+    "Person", "Visualization", "Backup", "Convention", "Metabolism",
+    "Category", "Data Source", "SearchSystem", "ContextCleanup",
+    "TranscriptRepair", "Codegen", "Scrapling", "Temporal"
+  ],
+
+  "blocked_entity_prefixes": [
+    "User.", "user.", "System.", "Plugin.", "Graph Plugin.",
+    "Extractor.", "Session.", "Conversation.",
+    "agent:", "openclaw-plugin-", "continuity-plugin",
+    "metabolism-plugin", "stability-plugin",
+    "[docs/", "[memory/"
+  ],
+
+  "valid_categories": [
+    "person", "project", "infrastructure", "decision", "convention",
+    "preference", "psychedelic", "automation", "tool", "workflow",
+    "pet", "people", "operational"
+  ],
+
+  "blocked_entity_patterns": [
+    "^\\*\\*",
+    "\\*\\*$",
+    "^##",
+    "^- ",
+    "^→",
+    "—\"$",
+    "^\"",
+    "\"\\)$",
+    "^\\(",
+    "^`",
+    "`$",
+    "^anthropic/",
+    "^openai/",
+    "^openrouter/",
+    "^\\d+\\.\\d+",
+    "^[a-z]{1,3}$",
+    "_",
+    "Q\\d+_K",
+    "\\.js$",
+    "\\.md$",
+    "\\.py$",
+    "\\.sh$",
+    "\\.json$",
+    "\\.db$",
+    "\\.db\\.",
+    "^facts",
+    "^entropy$",
+    "^dashboard$",
+    "^lightrag$",
+    "^openclaw$",
+    "^stability$",
+    "^continuity$",
+    "^metabolism$",
+    "^llama-"
+  ],
+
+  "noise_entities": [
+    "plugin", "service", "system", "config", "script", "module", "file",
+    "command", "model", "server", "client", "process", "session", "token",
+    "error", "warning", "debug", "info", "status", "result", "output",
+    "input", "data", "value", "key", "type", "name", "path", "port",
+    "the", "this", "that", "these", "those", "here", "there"
+  ]
+}
