@@ -2,7 +2,7 @@
 
 > Institutional knowledge for the memory architecture project.
 > GitHub: `coolmanns/openclaw-memory-architecture` (public)
-> Last updated: 2026-03-06
+> Last updated: 2026-03-07
 
 ## Mission
 
@@ -47,10 +47,23 @@ Single source of truth:
 
 ## What's Been Shared
 
-- GitHub Discussions #17824 (Show and tell) — v2.1 (needs update to v2.2)
+- GitHub Discussions #17824 (Show and tell) — v2.1 (needs update to v2.3)
+- v2.3 pushed 2026-03-06: contemplation pipeline, GAPS extraction, metabolism quality fixes, guardrails template
 - v2.2 pushed 2026-03-05: single-DB, 14 categories, retired plugin dirs
 - Discord post drafted but not posted (bot not in OpenClaw server)
 - Moltbook post failed (account suspended)
+
+## Fork Status
+
+| Plugin | Upstream | Our Fork | Key Differences |
+|--------|----------|----------|-----------------|
+| Continuity | CoderofTheWest | coolmanns/openclaw-plugin-continuity | facts.db repoint, config, manifest |
+| Metabolism | CoderofTheWest | coolmanns/openclaw-plugin-metabolism | GAPS extraction, gap forwarding, entity normalization, metadata stripping, guardrails |
+| Stability | CoderofTheWest | (no fork — using upstream) | — |
+| Contemplation | CoderofTheWest | (no fork — using upstream) | — |
+| Graph | CoderofTheWest | (no fork — installed untracked) | — |
+
+README install instructions point to our forks for continuity + metabolism, upstream for stability + contemplation.
 
 ## Landscape — What Others Are Building
 
