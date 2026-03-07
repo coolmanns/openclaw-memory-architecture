@@ -39,7 +39,7 @@ This architecture uses **each tool where it's strongest**.
 │          │                │                           │
 │  ┌───────┴────────────────┴────────────────────────┐ │
 │  │            SEMANTIC SEARCH                       │ │
-│  │   QMD (reranking) / llama.cpp GPU (768d)        │ │
+│  │   llama.cpp GPU (nomic-embed-text, 768d)        │ │
 │  │   Multilingual: 100+ languages                   │ │
 │  └────────────────────────────────────────────────┘ │
 │                                                       │
@@ -126,10 +126,9 @@ This architecture uses **each tool where it's strongest**.
 | **llama.cpp (GPU)** | Free | **4ms** | 768 | Best | Multilingual, local |
 | **Ollama nomic-embed-text** | Free | 61ms | 768 | Good | `ollama pull nomic-embed-text` |
 | **ONNX MiniLM-L6-v2** | Free | 240ms | 384 | Fair | Built into continuity plugin |
-| **QMD (built-in)** | Free | ~4s | — | Best (reranked) | OpenClaw native |
 | **OpenAI** | ~$0.02/M | ~200ms | 1536 | Great | Cloud API |
 
-**Recommendation:** llama.cpp for speed and multilingual support. QMD for best quality when latency is acceptable.
+**Recommendation:** llama.cpp for speed, multilingual support, and zero API cost.
 
 ## Quick Start
 
@@ -223,7 +222,7 @@ Enable in `~/.openclaw/openclaw.json`:
 | GPU | AMD Radeon 8060S — 96GB unified VRAM |
 | Storage | 1.9TB NVMe |
 
-The 96GB unified VRAM enables running large models without swapping. Smaller setups (8-16GB) work fine — just use llama.cpp alone without QMD.
+The 96GB unified VRAM enables running large models without swapping. Smaller setups (8-16GB) work fine with llama.cpp alone.
 
 ## Metacognitive Pipeline (v2.3)
 
