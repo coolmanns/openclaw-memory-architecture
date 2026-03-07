@@ -180,9 +180,9 @@ services:
 
 ```bash
 cd ~/.openclaw/extensions
-git clone https://github.com/CoderofTheWest/openclaw-plugin-continuity.git
+git clone https://github.com/coolmanns/openclaw-plugin-continuity.git
+git clone https://github.com/coolmanns/openclaw-plugin-metabolism.git
 git clone https://github.com/CoderofTheWest/openclaw-plugin-stability.git
-git clone https://github.com/CoderofTheWest/openclaw-plugin-graph-memory.git
 
 # Optional: metacognitive stack (contemplation + crystallization)
 git clone https://github.com/CoderofTheWest/openclaw-metacognitive-suite.git
@@ -258,7 +258,8 @@ This architecture was informed by:
 - **David Badre** — *On Task: How the Brain Gets Things Done*
 - **Shawn Harris** — [Building a Cognitive Architecture for Your OpenClaw Agent](https://shawnharris.com/building-a-cognitive-architecture-for-your-openclaw-agent/) — Memory gating, active-context patterns, gating policies
 - **r/openclaw community** — [How I Built a Memory System That Actually Works](https://old.reddit.com/r/openclaw/comments/1r7nd4y/how_i_built_a_memory_system_that_actually_works/) — Hybrid search benchmarking
-- **CoderofTheWest** — Continuity, stability, metabolism, contemplation, and crystallization plugins
+- **CoderofTheWest** — Original continuity, stability, metabolism, contemplation, and crystallization plugins (upstream)
+- Continuity and metabolism forks: [coolmanns/openclaw-plugin-continuity](https://github.com/coolmanns/openclaw-plugin-continuity), [coolmanns/openclaw-plugin-metabolism](https://github.com/coolmanns/openclaw-plugin-metabolism)
 
 ## Changelog
 
