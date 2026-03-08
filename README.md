@@ -122,7 +122,10 @@ This architecture uses **each tool where it's strongest**.
 
 ### 1. Directory Structure
 
+Create a `memory/` directory in your OpenClaw workspace (the directory configured as your agent's working directory in `openclaw.json`). This is where daily journal files (`YYYY-MM-DD.md`), `active-context.md`, and heartbeat state live.
+
 ```bash
+# Inside your OpenClaw workspace root (e.g. ~/clawd)
 mkdir -p memory
 ```
 
