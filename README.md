@@ -214,11 +214,17 @@ for d in openclaw-plugin-* lossless-claw; do cd "$d" && npm install && cd ..; do
 
 > **Note:** The `slots.contextEngine` assignment is what activates LCM. Without it, lossless-claw loads as a regular plugin but never takes over context management.
 
-### 7. Schedule Decay Cron
+### 7. Schedule Decay Cron (optional)
+
+facts.db uses a Hebbian-inspired activation model: facts that get accessed frequently stay "hot," while unused facts gradually cool down. The decay cron runs nightly to age activation scores across all facts.
 
 ```bash
-(crontab -l 2>/dev/null; echo "0 3 * * * python3 ~/clawd/scripts/graph-decay.py >> /tmp/openclaw/graph-decay.log 2>&1") | crontab -
+# Runs at 3 AM daily — adjusts activation tiers (Hot → Warm → Cool)
+# Logs to persistent location (survives reboots)
+(crontab -l 2>/dev/null; echo "0 3 * * * python3 ~/clawd/scripts/graph-decay.py >> ~/clawd/logs/graph-decay.log 2>&1") | crontab -
 ```
+
+> **Note:** The decay scoring columns (`decay_score`, `activation`, `importance`) exist in the schema but the ranking logic is still a stub — facts are stored and searched but decay doesn't yet influence search result ordering. This is on the [roadmap](#roadmap) (Task #93). The cron is safe to run now; it just won't affect behavior until the ranking integration is wired up.
 
 ## Reference Hardware
 
