@@ -20,61 +20,49 @@ This architecture uses **each tool where it's strongest**.
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│              LOSSLESS CONTEXT MANAGEMENT               │
-│       Immutable SQLite DAG — nothing is forgotten      │
-│    lcm.db: messages + summaries + FTS + context items  │
-├──────────────────────────────────────────────────────┤
-│                  SESSION CONTEXT                      │
-│            (~200K token window)                        │
+│           LOSSLESS CONTEXT ENGINE (lcm.db)            │
+│  Stores all messages → builds summary DAG → assembles │
+│  context window from DAG + live messages              │
 ├──────────────────────────────────────────────────────┤
 │                                                       │
-│  ┌────────────────┐  ┌──────────┐  ┌──────────────┐ │
-│  │ active-context │  │ MEMORY   │  │   USER.md    │ │
-│  │ .md            │  │ .md      │  │              │ │
-│  │ Working memory │  │ Curated  │  │  Who your    │ │
-│  │ What's hot NOW │  │ wisdom   │  │  human is    │ │
-│  └───────┬────────┘  └────┬─────┘  └──────────────┘ │
-│          │                │                           │
-│  ┌───────┴────────────────┴────────────────────────┐ │
-│  │        KNOWLEDGE GRAPH (SQLite + FTS5)           │ │
-│  │   facts.db + relations + aliases                 │ │
-│  │   Activation scoring + decay (Hot/Warm/Cool)     │ │
-│  └───────┬────────────────┬────────────────────────┘ │
-│          │                │                           │
-│  ┌───────┴────────────────┴────────────────────────┐ │
-│  │            SEMANTIC SEARCH                       │ │
-│  │   llama.cpp GPU (nomic-embed-text, 768d)        │ │
-│  │   Multilingual: 100+ languages                   │ │
-│  └────────────────────────────────────────────────┘ │
+│  CONTEXT WINDOW (~200K tokens, assembled by LCM)      │
 │                                                       │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │       DOMAIN RAG (LightRAG + PostgreSQL)          │ │
-│  │   GraphRAG — 4,909 entities, 6,089 relations      │ │
-│  │   11 books + 139 research papers                  │ │
-│  └──────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────┐   │
+│  │  Workspace Files (always loaded)               │   │
+│  │  MEMORY.md · USER.md · SOUL.md · AGENTS.md     │   │
+│  └────────────────────────────────────────────────┘   │
+│                                                       │
+│  ┌────────────────────────────────────────────────┐   │
+│  │  Plugin Context (injected at runtime)          │   │
+│  │  Continuity · Stability · Metabolism            │   │
+│  └────────────────────────────────────────────────┘   │
+│                                                       │
+│  ┌────────────────────────────────────────────────┐   │
+│  │  Conversation (managed by LCM)                 │   │
+│  │  Live messages + DAG summaries of older ones    │   │
+│  └────────────────────────────────────────────────┘   │
 │                                                       │
 ├──────────────────────────────────────────────────────┤
-│              PLUGIN LAYERS (Runtime)                  │
+│              PERSISTENT STORAGE                       │
 ├──────────────────────────────────────────────────────┤
 │                                                       │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │         CONTINUITY PLUGIN                         │ │
-│  │  Cross-session archive (sqlite-vec, 768d)         │ │
-│  │  Topic tracking, continuity anchors, facts search │ │
-│  └──────────────────────────────────────────────────┘ │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
+│  │   lcm.db     │ │  facts.db    │ │ continuity   │ │
+│  │  Messages    │ │  Entities    │ │  Archives    │ │
+│  │  Summaries   │ │  Relations   │ │  Embeddings  │ │
+│  │  FTS index   │ │  Aliases     │ │  Topics      │ │
+│  │  DAG nodes   │ │  Decay tiers │ │  Anchors     │ │
+│  └──────────────┘ └──────────────┘ └──────────────┘ │
 │                                                       │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │         STABILITY PLUGIN                          │ │
-│  │  Entropy monitoring, principle alignment          │ │
-│  │  Loop detection, growth vectors                   │ │
-│  └──────────────────────────────────────────────────┘ │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │
+│  │  LightRAG    │ │  Embeddings  │ │  Daily Files  │ │
+│  │  PostgreSQL  │ │  llama.cpp   │ │  memory/*.md  │ │
+│  │  GraphRAG    │ │  nomic 768d  │ │  Journal      │ │
+│  └──────────────┘ └──────────────┘ └──────────────┘ │
 │                                                       │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │    METACOGNITIVE PIPELINE (main agent only)       │ │
-│  │  Metabolism → Contemplation → Crystallization     │ │
-│  │  Facts + gaps + growth vectors + character traits  │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                       │
+├──────────────────────────────────────────────────────┤
+│       METACOGNITIVE PIPELINE (main agent only)        │
+│  Metabolism → Gaps → Contemplation → Growth Vectors   │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -102,13 +90,6 @@ This architecture uses **each tool where it's strongest**.
 - **Languages:** 100+ including German
 - **Latency:** ~7ms on GPU
 - **Setup:** llama.cpp Docker container with ROCm
-
-### Lossless Context Management (LCM)
-- **Plugin:** [lossless-claw](https://github.com/Martian-Engineering/lossless-claw) v0.2.3
-- **Store:** Immutable SQLite — every message, tool call, and response preserved forever
-- **DAG:** Summaries build a directed acyclic graph during compaction — detail is compressed but never lost
-- **Search:** `lcm_grep` (regex + FTS), `lcm_expand_query` (sub-agent deep recall)
-- **Complementary to continuity:** LCM = within-session lossless record, continuity = cross-session archive
 
 ### Knowledge Graph
 - **Scale:** 770+ facts, relations, aliases (post-cleanup)
@@ -142,7 +123,7 @@ This architecture uses **each tool where it's strongest**.
 ### 1. Directory Structure
 
 ```bash
-mkdir -p memory/checkpoints memory/runbooks
+mkdir -p memory
 ```
 
 ### 2. Initialize facts.db
@@ -183,38 +164,57 @@ services:
         --port 8080
 ```
 
-### 5. Enable Plugins
+### 5. Install Plugins
 
 ```bash
 cd ~/.openclaw/extensions
+
+# Core memory plugins (our forks)
 git clone https://github.com/coolmanns/openclaw-plugin-continuity.git
 git clone https://github.com/coolmanns/openclaw-plugin-metabolism.git
+
+# Upstream plugins
 git clone https://github.com/CoderofTheWest/openclaw-plugin-stability.git
 
-# Optional: metacognitive stack (contemplation + crystallization)
+# Lossless context engine (replaces default compaction)
+git clone https://github.com/Martian-Engineering/lossless-claw.git
+
+# Optional: metacognitive stack
 git clone https://github.com/CoderofTheWest/openclaw-metacognitive-suite.git
 cp -r openclaw-metacognitive-suite/openclaw-plugin-contemplation .
 
 # Install dependencies
-for d in openclaw-plugin-*; do cd "$d" && npm install && cd ..; done
+for d in openclaw-plugin-* lossless-claw; do cd "$d" && npm install && cd ..; done
 ```
 
-Enable in `~/.openclaw/openclaw.json`:
+### 6. Configure in `~/.openclaw/openclaw.json`
 
 ```json
 {
   "plugins": {
-    "allow": ["continuity", "stability", "graph-memory", "telegram", "discord"],
+    "allow": [
+      "openclaw-plugin-continuity",
+      "openclaw-plugin-stability",
+      "openclaw-plugin-metabolism",
+      "openclaw-plugin-contemplation",
+      "lossless-claw"
+    ],
     "entries": {
-      "continuity": { "enabled": true },
-      "stability": { "enabled": true },
-      "graph-memory": { "enabled": true }
+      "openclaw-plugin-continuity": { "enabled": true },
+      "openclaw-plugin-stability": { "enabled": true },
+      "openclaw-plugin-metabolism": { "enabled": true },
+      "lossless-claw": { "enabled": true }
+    },
+    "slots": {
+      "contextEngine": "lossless-claw"
     }
   }
 }
 ```
 
-### 6. Schedule Decay Cron
+> **Note:** The `slots.contextEngine` assignment is what activates LCM. Without it, lossless-claw loads as a regular plugin but never takes over context management.
+
+### 7. Schedule Decay Cron
 
 ```bash
 (crontab -l 2>/dev/null; echo "0 3 * * * python3 ~/clawd/scripts/graph-decay.py >> /tmp/openclaw/graph-decay.log 2>&1") | crontab -
