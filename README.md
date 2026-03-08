@@ -290,9 +290,10 @@ The newest layer — and architecturally the most significant. Instead of OpenCl
 
 ### Near-term (next 2-4 weeks)
 1. **LCM secrets scrubbing** — Tool I/O is stored verbatim in lcm.db. API keys, tokens, and sensitive data in exec/read output land in the DB permanently. Need a scrubbing layer before storage.
-2. **prependContext → prependSystemContext migration** — Continuity and stability plugins inject context via `prependContext`, which pollutes the LCM DAG with plugin metadata. Must migrate to `prependSystemContext` (system prompt injection that bypasses the DAG).
-3. **Crystallization plugin (Task #92)** — Install and configure the growth vector → permanent trait pipeline. Blocked on contemplation proving itself (first successful passes needed).
-4. **Hebbian decay implementation (Task #93)** — `decay_score`, `activation`, `importance` columns exist in facts.db but the actual decay logic is a stub. Wire real decay into search ranking.
+2. **Crystallization plugin (Task #92)** — Install and configure the growth vector → permanent trait pipeline. Blocked on contemplation proving itself (first successful passes needed).
+3. **Hebbian decay implementation (Task #93)** — `decay_score`, `activation`, `importance` columns exist in facts.db but the actual decay logic is a stub. Wire real decay into search ranking.
+
+> ✅ **Done:** `prependContext → prependSystemContext` migration — Continuity and stability plugins now inject via `prependSystemContext` (system prompt space, not ingested by LCM DAG).
 
 ### Mid-term (1-3 months)
 5. **Growth vector quality (Task #102)** — Current extraction prompt produces operational noise as "insights." Need behavioral vs. operational separation. Metabolism pipeline v2 redesign.

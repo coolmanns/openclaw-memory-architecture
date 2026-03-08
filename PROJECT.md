@@ -380,9 +380,10 @@ Nightshift processes tasks during heartbeat hooks, but heartbeats run 08:00-23:0
 
 ### Near-term
 1. **LCM secrets scrubbing** — Tool I/O stored verbatim in lcm.db. Need scrubbing layer before storage. CRITICAL prerequisite for production confidence.
-2. **prependContext → prependSystemContext migration** — Continuity and stability inject via `prependContext`, polluting the LCM DAG. Must migrate to `prependSystemContext`.
-3. **Crystallization plugin (Task #92)** — Growth vector → permanent trait pipeline. Blocked on contemplation proving first successful passes.
-4. **Hebbian decay (Task #93)** — Schema columns exist, logic is stub. Wire real decay + search ranking.
+2. **Crystallization plugin (Task #92)** — Growth vector → permanent trait pipeline. Blocked on contemplation proving first successful passes.
+3. **Hebbian decay (Task #93)** — Schema columns exist, logic is stub. Wire real decay + search ranking.
+
+> ✅ **Done:** `prependContext → prependSystemContext` — both continuity and stability already migrated.
 
 ### Mid-term
 5. **Growth vector quality (Task #102)** — Behavioral vs operational separation. Metabolism pipeline v2 redesign.
