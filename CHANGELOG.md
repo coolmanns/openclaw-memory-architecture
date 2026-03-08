@@ -49,6 +49,20 @@
 - Replaced raw axios calls with `@anthropic-ai/sdk` — handles `sk-ant-oat` tokens natively
 - OpenRouter backend added (unused, ready as fallback)
 
+### Documentation Rewrite
+- **README.md** — Major overhaul:
+  - Architecture diagram redesigned: LCM shown as context engine that assembles the window (was incorrectly layered above session context)
+  - Three-tier view: context assembly → persistent storage (6 stores) → metacognitive pipeline
+  - Removed stale graph-memory plugin references (killed weeks ago)
+  - Removed runbooks/checkpoints directory references (never used)
+  - Quick Start: added lossless-claw install step, `slots.contextEngine` config with explanation
+  - Plugin config JSON: corrected to full manifest IDs, added LCM, removed graph-memory
+  - Deduplicated LCM content (was in Key Features AND standalone section)
+  - Updated facts.db scale, LightRAG stats, plugin descriptions
+  - Added Roadmap section (near-term, mid-term, vision — 8 items)
+- **CHANGELOG.md** — v2.4 entry with all changes + pipeline status table
+- **PROJECT.md** — Task #109 flipped to LIVE, pipeline status updated, roadmap added
+
 ### Pipeline Status
 | Component | Status | Backend |
 |-----------|--------|---------|
