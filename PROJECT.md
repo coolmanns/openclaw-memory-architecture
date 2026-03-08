@@ -33,7 +33,7 @@ Single source of truth:
 | Component | Path/Detail |
 |-----------|-------------|
 | **Core facts.db** | `~/.openclaw/data/facts.db` — single DB, Hebbian schema |
-| **Writer** | Metabolism via `insert-facts.js` — every 30 min, Qwen3-30B-A3B, 10 guardrails |
+| **Writer** | Metabolism via `insert-facts.js` — every 5 min, Qwen3-30B-A3B, 10 guardrails |
 | **Readers** | Continuity FactsSearcher, Mission Control Facts Graph, `memory_search` tool |
 | **Guardrails** | `~/clawd/config/memory-guardrails.json` — blocked keys/entities/patterns, category caps |
 | **Schema** | Auto-increment ID, Hebbian (decay_score, activation, importance), FTS5, changelog, co-occurrences |
@@ -58,8 +58,8 @@ Single source of truth:
 | Plugin | Upstream | Our Fork | Key Differences |
 |--------|----------|----------|-----------------|
 | Continuity | CoderofTheWest | coolmanns/openclaw-plugin-continuity | facts.db repoint, config, manifest |
-| Metabolism | CoderofTheWest | coolmanns/openclaw-plugin-metabolism | GAPS extraction, gap forwarding, entity normalization, metadata stripping, guardrails |
-| Stability | CoderofTheWest | (no fork — using upstream) | — |
+| Metabolism | CoderofTheWest | coolmanns/openclaw-plugin-metabolism | GAPS extraction, gap forwarding, entity normalization, metadata stripping, guardrails, entropy context header parsing (fixes upstream bug — api.stability scoping) |
+| Stability | CoderofTheWest | coolmanns/openclaw-plugin-stability | Local config tweaks |
 | Contemplation | CoderofTheWest | (no fork — using upstream) | — |
 | Graph | CoderofTheWest | (no fork — installed untracked) | — |
 
@@ -139,6 +139,7 @@ Projects solving adjacent memory/stability problems for AI agents. Validates our
   2. Gazetteer seeded from existing facts.db entities — resolve "Martin" → "Martin Ball"
   3. Typed/constrained keys instead of freeform LLM invention
   4. Real-time extraction for high-confidence patterns (emails, URLs, dates) via agent_end hook
+- **LLM config:** `:8084` / Qwen3-30B-A3B (config label corrected 2026-03-06 from stale "Qwen3-14B")
 - **Task:** #91 (evaluate, install standalone without nightshift, port extraction patterns)
 - **Discovered:** 2026-02-21 | **Evaluated:** 2026-03-05
 
@@ -167,9 +168,23 @@ CoderofTheWest is building a coherent agent metacognitive stack:
 - **Nightshift** = when background work happens (scheduler) — *skipped, using cron*
 - **Contemplation** = deep reflection sessions — *✅ installed 2026-03-06, heartbeat-driven, Qwen3-30B*
 
-Together they form a complete metacognitive loop: observe behavior → extract knowledge → crystallize identity → enhance recall. We run 4/7 (stability, continuity, metabolism, contemplation). Graph installed but untracked. Nightshift skipped (heartbeat + cron). Crystallization next (Task #92, after contemplation proven).
+Together they form a complete metacognitive loop: observe behavior → extract knowledge → crystallize identity → enhance recall. We run 3/7 (stability, continuity, metabolism). Contemplation installed but awaiting first successful processing cycle. Graph **killed** (2026-03-06, 32% precision audit — extraction patterns ported to metabolism via Task #91). Nightshift skipped (heartbeat + cron). Crystallization next (Task #92, after contemplation proven).
+
+**Task #91 (Port Graph Extraction Patterns → Metabolism) — Phase 1 complete:**
+- ✅ Constrained predicates: 39 canonical predicates, parser rejects freeform
+- ✅ Gazetteer: top 100 facts.db entities injected into LLM prompt
+- ✅ 26 new tests passing, 9 existing tests still passing
+- ⬜ Real-time regex extraction via agent_end hook (future)
+- ⬜ NLP pre-filter with compromise.js (stretch)
 
 **Pipeline status (2026-03-06 evening):** Metabolism → GAPS extraction → gapListeners → Contemplation inquiry queue → heartbeat passes. First end-to-end test successful (6 gaps from 3 candidates). Awaiting first completed contemplation pass cycle (~24h).
+
+**LLM config alignment (2026-03-06 night):**
+- Discovered contemplation was configured to hit `localhost:11434` (dead endpoint, DeepSeek cloud model) — LLM calls were failing silently, explaining 0 vector promotions
+- Fixed: all three LLM-consuming plugins now aligned to same endpoint + model:
+  - Metabolism: `:8084` / Qwen3-30B-A3B ✅
+  - Graph: `:8084` / Qwen3-30B-A3B ✅ (config label also corrected from stale "Qwen3-14B")
+  - Contemplation: `:8084` / Qwen3-30B-A3B ✅ (was `localhost:11434` / `deepseek-v3.1:671b-cloud`)
 
 ## Hebbian Decay Status
 - Schema columns exist (decay_score, activation, importance) — added 2026-02-22
@@ -198,7 +213,7 @@ Metabolism produces growth vector candidates (343 at time of analysis), but noth
 
 **Step 2: Install contemplation plugin** ✅ DONE (2026-03-06)
 - Cloned from `github.com/CoderofTheWest/openclaw-plugin-contemplation` → `~/.openclaw/extensions/`
-- LLM endpoint: `localhost:8084/v1/chat/completions` (Qwen3-30B, shared with metabolism)
+- LLM endpoint: `localhost:8084/v1/chat/completions` (Qwen3-30B-A3B, shared with metabolism + contemplation)
 - maxTokens: 700 → 1500, timeout: 60s
 - Heartbeat-based pass execution (re-added — upstream removed it in favor of nightshift-only)
 - No nightshift dependency — heartbeat fallback skips if nightshift is present (forward-compatible)
@@ -226,11 +241,156 @@ Metabolism produces growth vector candidates (343 at time of analysis), but noth
 - Script retained as one-off cleanup/validation tool
 
 ### Infrastructure Changes (already applied)
-- Metabolism cron: `*/5` → `*/30` (less llama.cpp contention)
+- Metabolism cron: `*/30` → `*/5` (restored fast cycle)
 - llama-metabolism: `-c 8192`, `--parallel 2`, `--reasoning-format none`
 - `--reasoning-format none` required for Qwen3 models (fixes `<think>` tag crash)
+- Metabolism LLM backend: Anthropic Sonnet (switched from local Qwen3)
 
 See: `docs/adr/002-contemplation-implementation.md`
+
+## Recent Work (2026-03-07): Learning Loop Fix
+
+### Dev-Extend Workflow — 10 tasks + 4 tests completed
+- Code review found 3 broken pathways → all fixed
+- Load order swap: nightshift before contemplation (contemplation task runner now registers)
+- Gap file queue: metabolism cron → pending-gaps.json → contemplation heartbeat
+- Auto-promotion: VectorStore.addCandidate() routing (was raw push, no recurrence tracking)
+- Facts invalidation: superseded_at column + FactsSearcher filtering
+- Contemplation LLM: Qwen3 → Anthropic Sonnet
+
+### Pipeline Status (2026-03-08)
+- Metabolism: ✅ Sonnet backend, gaps + vectors flowing, **main agent only** (Task #108)
+- Contemplation: ✅ Registered with nightshift, cron trigger deployed (23:00-08:00 every 30min)
+- Nightshift: ✅ `runCycle` gateway method live, morning detection filter applied
+- Growth vectors: ⚠️ 19 active (deduped), quality needs work (Task #102 — behavioral vs operational)
+- Facts: ✅ superseded_at invalidation active
+- LCM: ✅ Context engine active, ingesting, FTS operational
+- **All memory plugins: main agent only** — spiritual-dude, cron-agent silently skipped (Task #108)
+
+### LIVE: Lossless Context Management (Task #109)
+- **Status:** ✅ ACTIVATED (2026-03-08) — context engine slot configured, schema bootstrapped, ingesting
+- lossless-claw v0.2.3 replaces OpenClaw's legacy compaction with immutable SQLite store + summary DAG
+- Config: `plugins.slots.contextEngine: "lossless-claw"` in `openclaw.json`
+- DB: `~/.openclaw/lcm.db` — 21 tables, FTS5 indexed, 372+ messages after first session
+- Seeded with all 12 PROJECT.md files (1 MB DB after initial session)
+- Does NOT replace: facts.db, metabolism, stability, contemplation, continuity cross-session archive
+- Continuity shifts from "context owner" to "facts enricher" — needs `prependSystemContext` migration
+- **Known risks:**
+  - Tool I/O stored verbatim — no secrets scrubbing (CRITICAL, not yet addressed)
+  - `prependContext` plugins (continuity, stability) pollute the DAG with metadata
+- Repo: https://github.com/Martian-Engineering/lossless-claw
+- Evaluation: 5 OpenProse reports in `projects/lossless-claw-eval/`
+
+### Open: Task #102
+- Growth vector extraction prompt outputs operational noise as "insights"
+- Dashboard schema mismatch (needs area/direction/priority fields)
+- Metabolism pipeline v2 redesign still parked
+
+### Metabolism Pre-Filter (2026-03-07)
+- Added 10+ `_stripMetadata()` patterns: heartbeat prompts, NO_REPLY, SKILL SUGGESTION, session startup, memory flush, queued message headers, continuity/document recall blocks
+- **Deployment gotcha:** workspace copy (`~/clawd/plugins/metabolism/`) ≠ runtime copy (`~/.openclaw/extensions/`). Must sync before restart.
+- Verified end-to-end: raw candidates with noise come out clean after `_formatConversation()`
+
+### Growth Vector Dedup (2026-03-07)
+- Built `scripts/growth-vector-dedup.py` — Jaccard similarity (0.45 threshold) + noise pattern pruning
+- Results: 902 → 736 candidates, 7 became promotable, **19 total vectors** now (was 2)
+- Script is rerunnable, safe to add to periodic maintenance
+- Key insight: many candidates were the same observation with slightly different wording — recurrence tracking missed them without semantic similarity
+
+### Anthropic SDK Auth Fix (2026-03-07)
+- Metabolism cron failed with `invalid x-api-key` after gateway restart — OAuth tokens rotated
+- **Fix:** Replaced raw axios calls with `@anthropic-ai/sdk` from OpenClaw's node_modules
+- SDK handles `sk-ant-oat` tokens natively when passed as `apiKey` — no manual OAuth exchange needed
+- Also added OpenRouter backend (unused, ready as fallback)
+- OMA dashboard field mapping fixed: metabolism vectors now display correctly (19/19 showing)
+- **Task #104** ✅ completed: unified growth vector schema — `area`/`direction`/`priority` on all vectors, migration ran (19 vectors + 754 candidates), 15 tests, dead fields pruned
+
+## Per-Agent Plugin Scoping (Task #108, 2026-03-08)
+
+**Status:** ✅ Code changes done, awaiting restart + verification
+
+### Problem
+All memory plugins (metabolism, stability, contemplation) ran for every agent — spiritual-dude, cron-agent, etc. generated candidates/state that never got processed, wasting resources and creating orphaned data.
+
+### Design Decision
+**Option A: Per-plugin agent allowlist** — each plugin reads `config.agents` (array of agent IDs). Default: `['main']`. Agents not in the list are silently skipped at every hook entry point.
+
+Option B (per-agent plugin config) was rejected — would require cleaning up all partially-configured agents.
+
+### Implementation
+Identical pattern in all three plugins:
+```js
+const allowedAgents = config.agents || ['main'];
+function isAgentAllowed(agentId) {
+    return allowedAgents.includes(agentId || 'main');
+}
+```
+
+Gate added at top of every hook (`agent_end`, `before_agent_start`, `before_compaction`, `after_tool_call`, `heartbeat`, `session_end`).
+
+| Plugin | Hooks Gated | Notes |
+|--------|-------------|-------|
+| **Metabolism** | `agent_end`, `before_compaction`, `session_end` | 3 hooks, verbose log on skip |
+| **Stability** | `before_agent_start`, `agent_end`, `after_tool_call`, `before_compaction` | 4 hooks, returns `{}` on before_agent_start skip |
+| **Contemplation** | `agent_end`, `heartbeat`, `session_end` | 3 hooks |
+| **Continuity** | Already scoped | Has `agentFeatures()` with per-agent feature flags since earlier |
+
+### Config
+No config change needed — defaults to `['main']` which covers both main agent and mission-control (same agentId). To add agents later:
+```json
+"openclaw-plugin-metabolism": {
+  "config": {
+    "agents": ["main", "some-other-agent"],
+    ...
+  }
+}
+```
+
+### Key Insight
+mission-control is NOT a separate agent — it's session key `agent:main:mission-control` with `agentId: main`. No special handling needed.
+
+### Files Changed
+- `plugins/metabolism/index.js` + synced to `~/.openclaw/extensions/openclaw-plugin-metabolism/index.js`
+- `plugins/stability/index.js` + synced to `~/.openclaw/extensions/openclaw-plugin-stability/index.js`
+- `~/.openclaw/extensions/openclaw-plugin-contemplation/index.js` (edited in-place, no workspace copy)
+
+### ⚠️ Important: Main Agent Only
+After this change, metabolism, stability, and contemplation **only process for the main agent**. All other agents (spiritual-dude, cron-agent, etc.) are silently skipped. Continuity has its own per-agent feature flags (already configured). To add an agent to any plugin, add its ID to the `agents` array in that plugin's config.
+
+## Nightshift Pipeline Fix (2026-03-08)
+
+**Status:** Code done, awaiting restart
+
+### Root Cause
+Nightshift processes tasks during heartbeat hooks, but heartbeats run 08:00-23:00 and nightshift office hours are 23:00-08:00 — **zero overlap**. Additionally, the morning briefing cron (4 AM) falsely triggered morning detection because "morning" is in the default `morningPhrases` config.
+
+### Fixes
+1. **`nightshift.runCycle` gateway method** — cron-triggered processing, bypasses heartbeat dependency
+2. **`contemplation.ingestAndQueue` global** — nightshift triggers gap ingestion + pass self-queuing (solves in-memory queue volatility on restart)
+3. **Morning detection filter** — `agent_end` skips heartbeat/cron turns
+4. **Nightshift cron** — `scripts/nightshift-cron.sh`, every 30 min during 23:00-07:59
+
+### Files Changed
+- `~/.openclaw/extensions/openclaw-plugin-nightshift/index.js` — `runCycle` method + cron turn filter
+- `~/.openclaw/extensions/openclaw-plugin-contemplation/index.js` — `ingestAndQueue` global
+- `scripts/nightshift-cron.sh` — new
+- Crontab: `*/30 23,0-7 * * *`
+
+## Roadmap
+
+### Near-term
+1. **LCM secrets scrubbing** — Tool I/O stored verbatim in lcm.db. Need scrubbing layer before storage. CRITICAL prerequisite for production confidence.
+2. **prependContext → prependSystemContext migration** — Continuity and stability inject via `prependContext`, polluting the LCM DAG. Must migrate to `prependSystemContext`.
+3. **Crystallization plugin (Task #92)** — Growth vector → permanent trait pipeline. Blocked on contemplation proving first successful passes.
+4. **Hebbian decay (Task #93)** — Schema columns exist, logic is stub. Wire real decay + search ranking.
+
+### Mid-term
+5. **Growth vector quality (Task #102)** — Behavioral vs operational separation. Metabolism pipeline v2 redesign.
+6. **Metabolism on lcm.db** — Session-end extraction against full lossless record instead of compacted snippets.
+7. **Cross-session LCM queries** — `allConversations: true` for searching across every session.
+
+### Vision
+8. **Unified knowledge architecture** — LCM DAG as conversation record + knowledge graph. Growth vectors as DAG annotations. Facts as DAG-derived entities. One store, multiple views.
 
 ## AGENTS.md Integration (updated 2026-03-05)
 - Added `### Recalled Memories` section per upstream continuity design

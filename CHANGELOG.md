@@ -1,5 +1,67 @@
 # Changelog
 
+## v2.4 — Lossless Context Management + Learning Loop + Per-Agent Scoping (2026-03-08)
+
+### Lossless Context Management (LCM)
+- **Activated `lossless-claw` as context engine** — replaces OpenClaw's legacy compaction with immutable SQLite store + summary DAG
+- Schema fully bootstrapped: 21 tables including FTS5 indexes, conversations, messages, summaries, context_items
+- First session: 372 messages ingested, all FTS-indexed, 1 MB DB after seeding with 12 PROJECT.md files
+- `lcm_grep` (regex + full-text), `lcm_describe`, `lcm_expand`, `lcm_expand_query` tools all operational
+- Within-session lossless record — no more context loss during compaction
+- **Complementary to continuity** (within-session vs cross-session), NOT a replacement
+- Config: `plugins.slots.contextEngine: "lossless-claw"`
+- DB: `~/.openclaw/lcm.db`
+- **Known risk:** Tool I/O stored verbatim — no secrets scrubbing yet
+
+### Learning Loop Fix (2026-03-07)
+- **10 dev-extend tasks completed** via OpenProse workflow (code review → design → implementation)
+- Load order swap: nightshift before contemplation (task runner registration fix)
+- Gap file queue: metabolism cron → `pending-gaps.json` → contemplation heartbeat (survives restarts)
+- Auto-promotion: `VectorStore.addCandidate()` routing fixed (was raw push, no recurrence tracking)
+- Facts invalidation: `superseded_at` column + FactsSearcher filtering (old facts age out when corrected)
+- Contemplation LLM backend: Qwen3-30B → Anthropic Sonnet (quality improvement)
+
+### Per-Agent Plugin Scoping (2026-03-08, Task #108)
+- Metabolism, stability, contemplation **gated to main agent only** via `config.agents` allowlist
+- Identical pattern across all three plugins: `isAgentAllowed()` check at every hook entry point
+- spiritual-dude, cron-agent silently skipped — no orphaned data generation
+- Continuity already had per-agent feature flags (unchanged)
+
+### Nightshift Pipeline Fix (2026-03-08)
+- **Root cause:** Heartbeat active hours (08:00-23:00) and nightshift office hours (23:00-08:00) had zero overlap
+- `nightshift.runCycle` gateway RPC — cron-triggered processing, bypasses heartbeat dependency
+- `contemplation.ingestAndQueue` global function — nightshift triggers gap ingestion + pass self-queuing
+- Morning detection filter — `agent_end` skips heartbeat/cron turns (fixes morning briefing false trigger)
+- Nightshift cron: `scripts/nightshift-cron.sh` (every 30 min, 23:00-07:59)
+
+### Growth Vectors
+- **Dedup script** (`scripts/growth-vector-dedup.py`) — Jaccard similarity (0.45 threshold) + noise pruning
+- 902 → 736 candidates, 7 promoted → **19 total vectors** (was 2)
+- **Unified schema (Task #104)** — `area`/`direction`/`priority` fields on all vectors + candidates
+- Migration ran across 19 vectors + 754 candidates, 15 tests, dead fields pruned
+
+### Metabolism Pre-Filter
+- 10+ new `_stripMetadata()` patterns: heartbeat prompts, NO_REPLY, SKILL SUGGESTION, session startup blocks, memory flush markers, queued message headers, continuity/document recall blocks
+- Deployment gotcha documented: workspace copy ≠ runtime copy, must sync before restart
+
+### Anthropic SDK Auth Fix (2026-03-07)
+- Metabolism cron failed with `invalid x-api-key` after gateway restart (OAuth tokens rotated)
+- Replaced raw axios calls with `@anthropic-ai/sdk` — handles `sk-ant-oat` tokens natively
+- OpenRouter backend added (unused, ready as fallback)
+
+### Pipeline Status
+| Component | Status | Backend |
+|-----------|--------|---------|
+| Metabolism | ✅ Running | Anthropic Sonnet |
+| Contemplation | ✅ Registered | Anthropic Sonnet |
+| Nightshift | ✅ Cron-triggered | Gateway RPC |
+| Growth vectors | ⚠️ Quality needs work | Task #102 |
+| Facts invalidation | ✅ `superseded_at` active | SQLite |
+| LCM | ✅ Ingesting | lossless-claw v0.2.3 |
+| Per-agent scoping | ✅ Main only | Config allowlist |
+
+---
+
 ## v2.3 — Contemplation Pipeline + Metabolism Gap Extraction (2026-03-06)
 
 ### Contemplation Plugin (installed)

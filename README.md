@@ -20,6 +20,10 @@ This architecture uses **each tool where it's strongest**.
 
 ```
 ┌──────────────────────────────────────────────────────┐
+│              LOSSLESS CONTEXT MANAGEMENT               │
+│       Immutable SQLite DAG — nothing is forgotten      │
+│    lcm.db: messages + summaries + FTS + context items  │
+├──────────────────────────────────────────────────────┤
 │                  SESSION CONTEXT                      │
 │            (~200K token window)                        │
 ├──────────────────────────────────────────────────────┤
@@ -44,35 +48,31 @@ This architecture uses **each tool where it's strongest**.
 │  └────────────────────────────────────────────────┘ │
 │                                                       │
 │  ┌──────────────────────────────────────────────────┐ │
-│  │       DOMAIN RAG (Integration Coaching)           │ │
-│  │   Ebooks RAG — 4,361 chunks, 27 documents         │ │
-│  └──────────────────────────────────────────────────┘ │
-│                                                       │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │           PROJECT MEMORY                          │ │
-│  │  memory/project-{slug}.md per project             │ │
+│  │       DOMAIN RAG (LightRAG + PostgreSQL)          │ │
+│  │   GraphRAG — 4,909 entities, 6,089 relations      │ │
+│  │   11 books + 139 research papers                  │ │
 │  └──────────────────────────────────────────────────┘ │
 │                                                       │
 ├──────────────────────────────────────────────────────┤
-│              PLUGIN LAYERS (10–12)                    │
+│              PLUGIN LAYERS (Runtime)                  │
 ├──────────────────────────────────────────────────────┤
 │                                                       │
 │  ┌──────────────────────────────────────────────────┐ │
 │  │         CONTINUITY PLUGIN                         │ │
 │  │  Cross-session archive (sqlite-vec, 768d)         │ │
-│  │  Topic tracking, continuity anchors               │ │
+│  │  Topic tracking, continuity anchors, facts search │ │
 │  └──────────────────────────────────────────────────┘ │
 │                                                       │
 │  ┌──────────────────────────────────────────────────┐ │
 │  │         STABILITY PLUGIN                          │ │
 │  │  Entropy monitoring, principle alignment          │ │
-│  │  Loop detection, confabulation guards             │ │
+│  │  Loop detection, growth vectors                   │ │
 │  └──────────────────────────────────────────────────┘ │
 │                                                       │
 │  ┌──────────────────────────────────────────────────┐ │
-│  │         GRAPH-MEMORY PLUGIN                       │ │
-│  │  Entity extraction, [GRAPH MEMORY] injection      │ │
-│  │  Zero API cost, ~2s latency                       │ │
+│  │    METACOGNITIVE PIPELINE (main agent only)       │ │
+│  │  Metabolism → Contemplation → Crystallization     │ │
+│  │  Facts + gaps + growth vectors + character traits  │ │
 │  └──────────────────────────────────────────────────┘ │
 │                                                       │
 └──────────────────────────────────────────────────────┘
@@ -82,19 +82,18 @@ This architecture uses **each tool where it's strongest**.
 
 | Layer | System | Purpose | Latency |
 |-------|--------|---------|---------|
+| **0** | **LCM (lossless-claw)** | **Lossless within-session context — DAG + FTS** | **Runtime** |
 | 1 | Always-loaded files | Identity, working memory | 0ms (injected) |
 | 2 | MEMORY.md | Curated long-term wisdom | 0ms (injected) |
-| 3 | project-{slug}.md | Cross-agent institutional knowledge | 0ms (injected) |
+| 3 | PROJECT.md per project | Institutional knowledge | 0ms (injected) |
 | 4 | facts.db | Structured entity/key/value | <1ms (SQLite) |
 | 5 | Semantic search | Fuzzy recall, document search | 7ms (GPU) |
-| 5a | Ebooks RAG | Domain-specific integration content | ~100ms |
+| 5a | LightRAG | Domain GraphRAG (11 books + 139 papers) | ~200ms |
 | 6 | Daily logs | Raw session history | On demand |
-| 7 | tools-*.md | Procedural runbooks | On demand |
-| 8 | gating-policies.md | Failure prevention rules | On demand |
-| 9 | checkpoints/ | Pre-flight state saves | On demand |
-| 10 | Continuity plugin | Cross-session conversation | Runtime |
-| 11 | Stability plugin | Behavioral monitoring | Runtime |
-| 12 | Graph-memory plugin | Entity injection | Runtime |
+| 10 | Continuity plugin | Cross-session conversation archive | Runtime |
+| 11 | Stability plugin | Entropy monitoring, growth vectors | Runtime |
+| 12 | Metabolism plugin | Fact extraction, gap detection | Runtime |
+| 13 | Contemplation plugin | Deep inquiry pipeline (3-pass) | Background |
 
 ## Key Features
 
@@ -104,20 +103,28 @@ This architecture uses **each tool where it's strongest**.
 - **Latency:** ~7ms on GPU
 - **Setup:** llama.cpp Docker container with ROCm
 
+### Lossless Context Management (LCM)
+- **Plugin:** [lossless-claw](https://github.com/Martian-Engineering/lossless-claw) v0.2.3
+- **Store:** Immutable SQLite — every message, tool call, and response preserved forever
+- **DAG:** Summaries build a directed acyclic graph during compaction — detail is compressed but never lost
+- **Search:** `lcm_grep` (regex + FTS), `lcm_expand_query` (sub-agent deep recall)
+- **Complementary to continuity:** LCM = within-session lossless record, continuity = cross-session archive
+
 ### Knowledge Graph
-- **Scale:** 3,108 facts, 1,009 relations, 275 aliases
-- **Decay system:** Hot/Warm/Cool tiers, daily cron
-- **Benchmark:** 100% recall (60/60 queries)
+- **Scale:** 770+ facts, relations, aliases (post-cleanup)
+- **Decay system:** Hot/Warm/Cool tiers, `superseded_at` invalidation
+- **Facts writer:** Metabolism plugin (Anthropic Sonnet, every 5 min)
 
-### Domain RAG
-- **Content:** 5-MeO-DMT integration guides, blog posts
-- **Scale:** 4,361 chunks, 27 documents
-- **Cron:** Weekly reindex
+### Domain RAG (LightRAG)
+- **Content:** 5-MeO-DMT research, books, guides, 139 research papers
+- **Scale:** 4,909 entities, 6,089 relations (GraphRAG)
+- **Stack:** PostgreSQL + pgvector, OpenAI gpt-4.1-mini for extraction
 
-### Runtime Plugins
-- **Continuity:** Cross-session memory, topic tracking
-- **Stability:** Entropy monitoring, principle alignment
-- **Graph-memory:** Automatic entity injection
+### Runtime Plugins (main agent only)
+- **Continuity:** Cross-session memory, topic tracking, facts search
+- **Stability:** Entropy monitoring, principle alignment, growth vectors
+- **Metabolism:** LLM-based fact extraction, knowledge gap detection
+- **Contemplation:** Three-pass deep inquiry (explore → reflect → synthesize)
 
 ## Embedding Options
 
@@ -224,25 +231,76 @@ Enable in `~/.openclaw/openclaw.json`:
 
 The 96GB unified VRAM enables running large models without swapping. Smaller setups (8-16GB) work fine with llama.cpp alone.
 
-## Metacognitive Pipeline (v2.3)
+## Metacognitive Pipeline (v2.4)
 
 Beyond storage and recall, the architecture includes a metacognitive loop that lets the agent learn from its own conversations:
 
 ```
 Conversation → Metabolism (extract facts + gaps)
-                    ↓
-              Contemplation (3-pass refinement over 24h)
-                    ↓
-              Growth Vectors (behavioral patterns)
-                    ↓
-              Crystallization (permanent traits — 30+ day gate)
+                    ↓                    ↓
+              facts.db            pending-gaps.json
+              (superseded_at        ↓
+               invalidation)   Nightshift cron (23:00-08:00)
+                                     ↓
+                              Contemplation (3-pass over 24h)
+                                     ↓
+                              Growth Vectors (19 active)
+                                     ↓
+                              Crystallization (30+ day gate)
 ```
 
-- **Metabolism** — LLM-based extraction of facts, implications, and knowledge gaps from every high-entropy conversation. Writes to facts.db and forwards gaps to contemplation.
-- **Contemplation** — Three-pass inquiry pipeline (explore → reflect → synthesize). Each gap gets examined over ~24 hours before producing a refined growth vector.
-- **Crystallization** — Promotes growth vectors to permanent character traits after 30+ days of consistent evidence. Requires human approval.
+- **Metabolism** — Anthropic Sonnet extracts facts, implications, and knowledge gaps. Metadata pre-filter strips 10+ noise patterns. Entity normalization via gazetteer. Writes to facts.db (with `superseded_at` invalidation) and forwards gaps via file queue.
+- **Contemplation** — Three-pass inquiry pipeline (explore → reflect → synthesize) triggered by nightshift cron. Each gap examined over ~24 hours.
+- **Growth Vectors** — 19 active vectors (deduped from 902 candidates via Jaccard similarity). Unified schema with `area`/`direction`/`priority` fields.
+- **Crystallization** — Promotes growth vectors to permanent character traits after 30+ days. Three-gate model: time + principle alignment + human approval. (Not yet installed — next after contemplation proven.)
 
-The pipeline runs on local LLM (Qwen3-30B via llama.cpp) with zero external API cost.
+**Per-agent scoping:** The entire metacognitive pipeline runs for the **main agent only**. Other agents (cron-agent, spiritual-dude) are silently skipped to prevent orphaned data.
+
+## Lossless Context Management (LCM)
+
+The newest layer — and architecturally the most significant. Instead of OpenClaw's default "chop and forget" compaction, LCM preserves every message in an immutable SQLite store and builds a summary DAG during compaction.
+
+**How it works:**
+1. Every message (user, assistant, tool I/O) is stored in `lcm.db` with FTS5 indexing
+2. When the context window fills, LCM creates leaf summaries (depth 0) from the oldest messages
+3. As more summaries accumulate, they're merged into higher-level summaries (depth 1, 2, ...)
+4. Context assembly walks the DAG to reconstruct the most relevant context per turn
+5. Nothing is ever deleted — you can drill into any summary to recover the original messages
+
+**Search tools:**
+- `lcm_grep` — regex or full-text search across all messages and summaries
+- `lcm_describe` — inspect a specific summary's metadata and content
+- `lcm_expand` — traverse the DAG to recover compressed detail
+- `lcm_expand_query` — delegated sub-agent answers questions from expanded context
+
+**Complementary to continuity:** LCM handles within-session lossless context. Continuity handles cross-session archive and recall. They serve different timescales.
+
+**Config:**
+```json
+{
+  "plugins": {
+    "slots": {
+      "contextEngine": "lossless-claw"
+    }
+  }
+}
+```
+
+## Roadmap
+
+### Near-term (next 2-4 weeks)
+1. **LCM secrets scrubbing** — Tool I/O is stored verbatim in lcm.db. API keys, tokens, and sensitive data in exec/read output land in the DB permanently. Need a scrubbing layer before storage.
+2. **prependContext → prependSystemContext migration** — Continuity and stability plugins inject context via `prependContext`, which pollutes the LCM DAG with plugin metadata. Must migrate to `prependSystemContext` (system prompt injection that bypasses the DAG).
+3. **Crystallization plugin (Task #92)** — Install and configure the growth vector → permanent trait pipeline. Blocked on contemplation proving itself (first successful passes needed).
+4. **Hebbian decay implementation (Task #93)** — `decay_score`, `activation`, `importance` columns exist in facts.db but the actual decay logic is a stub. Wire real decay into search ranking.
+
+### Mid-term (1-3 months)
+5. **Growth vector quality (Task #102)** — Current extraction prompt produces operational noise as "insights." Need behavioral vs. operational separation. Metabolism pipeline v2 redesign.
+6. **Metabolism on lcm.db** — Instead of extracting facts from compacted conversation snippets, metabolism could run session-end extraction against the full lossless record in lcm.db. Better input = better output.
+7. **Cross-session LCM queries** — `lcm_grep` and `lcm_expand_query` with `allConversations: true` to search across every session the agent has ever had. The "perfect memory" use case.
+
+### Vision
+8. **Unified knowledge architecture** — The LCM DAG as both conversation record AND knowledge graph. Growth vectors as DAG annotations. Facts as DAG-derived entities. One store, multiple views. The summary DAG already captures relationships between topics naturally — extracting them explicitly would close the loop between "what was discussed" and "what was learned."
 
 ## Documentation
 
