@@ -113,7 +113,6 @@ This architecture uses **each tool where it's strongest**.
 |----------|------|---------|------|---------|-------|
 | **llama.cpp (GPU)** ✅ | Free | **4ms** | 768 | Best | Multilingual, local |
 | **Ollama nomic-embed-text** | Free | 61ms | 768 | Good | `ollama pull nomic-embed-text` |
-| **ONNX MiniLM-L6-v2** | Free | 240ms | 384 | Fair | Built into upstream continuity plugin |
 | **OpenAI** | ~$0.02/M | ~200ms | 1536 | Great | Cloud API, no local GPU needed |
 
 **Our setup:** llama.cpp with nomic-embed-text-v2-moe at `localhost:8082`. All embedding consumers (continuity, semantic search, grepai) hit this single server. Zero API cost, 768d, multilingual.
