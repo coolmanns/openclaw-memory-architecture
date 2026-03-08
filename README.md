@@ -318,7 +318,11 @@ This architecture was informed by:
 - **Shawn Harris** — [Building a Cognitive Architecture for Your OpenClaw Agent](https://shawnharris.com/building-a-cognitive-architecture-for-your-openclaw-agent/) — Memory gating, active-context patterns, gating policies
 - **r/openclaw community** — [How I Built a Memory System That Actually Works](https://old.reddit.com/r/openclaw/comments/1r7nd4y/how_i_built_a_memory_system_that_actually_works/) — Hybrid search benchmarking
 - **CoderofTheWest** — Original continuity, stability, metabolism, contemplation, and crystallization plugins (upstream)
-- Continuity and metabolism forks: [coolmanns/openclaw-plugin-continuity](https://github.com/coolmanns/openclaw-plugin-continuity), [coolmanns/openclaw-plugin-metabolism](https://github.com/coolmanns/openclaw-plugin-metabolism)
+- **Martian Engineering** — [lossless-claw](https://github.com/Martian-Engineering/lossless-claw) context engine plugin
+- Our forks:
+  - [coolmanns/openclaw-plugin-continuity](https://github.com/coolmanns/openclaw-plugin-continuity) — Hebbian facts search, prependSystemContext migration, entity resolution
+  - [coolmanns/openclaw-plugin-metabolism](https://github.com/coolmanns/openclaw-plugin-metabolism) — Custom guardrails, metadata pre-filter, entity normalization
+  - [coolmanns/openclaw-plugin-stability](https://github.com/coolmanns/openclaw-plugin-stability) — prependSystemContext migration, growth vector schema
 
 ## Changelog
 
