@@ -61,10 +61,11 @@ Single source of truth:
 | Metabolism | CoderofTheWest | coolmanns/openclaw-plugin-metabolism | GAPS extraction, gap forwarding, entity normalization, metadata stripping, guardrails, entropy context header parsing (fixes upstream bug — api.stability scoping) |
 | Stability | CoderofTheWest | coolmanns/openclaw-plugin-stability | Semantic emotion scoring (Plutchik + nomic-embed), valence gate, Shannon entropy, debt tracking, intensity scaling, Telegram envelope stripping, expanded keywords |
 | Lossless-claw (LCM) | Martian-Engineering | coolmanns/lossless-claw | Configurable summary model (`summaryModel` config + schema), decouples summarization from session model |
-| Contemplation | CoderofTheWest | (no fork — using upstream) | — |
+| Contemplation | CoderofTheWest | coolmanns/openclaw-plugin-contemplation | resolveApiKey fix for tagInquiry (was always null), gap ingestion maxAge 1h→24h |
+| Nightshift | CoderofTheWest | coolmanns/openclaw-plugin-nightshift | Failed cycle counting fix, caps bumped (maxPerNight 3→20, maxCycles 10→30), timezone→America/Chicago |
 | Graph | CoderofTheWest | (no fork — installed untracked) | — |
 
-README install instructions point to our forks for continuity + metabolism, upstream for stability + contemplation.
+README install instructions point to our forks for continuity, metabolism, stability, contemplation, and nightshift. Graph uses upstream.
 
 ## Landscape — What Others Are Building
 
@@ -169,7 +170,7 @@ CoderofTheWest is building a coherent agent metacognitive stack:
 - **Nightshift** = when background work happens (scheduler) — *skipped, using cron*
 - **Contemplation** = deep reflection sessions — *✅ installed 2026-03-06, heartbeat-driven, Qwen3-30B*
 
-Together they form a complete metacognitive loop: observe behavior → extract knowledge → crystallize identity → enhance recall. We run 3/7 (stability, continuity, metabolism). Contemplation installed but awaiting first successful processing cycle. Graph **killed** (2026-03-06, 32% precision audit — extraction patterns ported to metabolism via Task #91). Nightshift skipped (heartbeat + cron). Crystallization next (Task #92, after contemplation proven).
+Together they form a complete metacognitive loop: observe behavior → extract knowledge → crystallize identity → enhance recall. We run 5/7 (stability, continuity, metabolism, contemplation, nightshift). Contemplation pipeline fixed 2026-03-09 (API key resolution + gap ingestion window + nightshift cycle counting). 63 inquiries queued, first successful processing cycle expected tonight. Graph **killed** (2026-03-06, 32% precision audit — extraction patterns ported to metabolism via Task #91). Nightshift skipped (heartbeat + cron). Crystallization next (Task #92, after contemplation proven).
 
 **Task #91 (Port Graph Extraction Patterns → Metabolism) — Phase 1 complete:**
 - ✅ Constrained predicates: 39 canonical predicates, parser rejects freeform
