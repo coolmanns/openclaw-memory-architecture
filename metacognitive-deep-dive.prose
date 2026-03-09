@@ -1,0 +1,56 @@
+// Metacognitive Suite Deep Dive
+// Analyzes plugin code review findings, identifies gaps, and produces blog content
+// Run after sub-agent code review completes
+
+agent analyst:
+  model: sonnet
+  prompt: """
+    You are a systems architect specializing in AI agent memory and learning architectures.
+    You analyze plugin implementations for correctness, completeness, and real-world effectiveness.
+    Be direct and opinionated. Flag what's broken, what's working, and what's missing.
+  """
+
+agent writer:
+  model: sonnet
+  prompt: """
+    You are a technical writer for a blog about AI agent development.
+    You write for an audience of developers and AI enthusiasts who want practical, battle-tested insights.
+    No fluff, no hype. Show what works, what doesn't, and why.
+    Voice: direct, experienced, slightly irreverent.
+  """
+
+// Phase 1: Ingest and analyze the code review report
+let review = session "Read the code review report at ~/clawd/projects/openclaw-memory-architecture/plugin-code-review-2026-03-07.md and summarize the key findings. Group them by: (1) bugs and logic errors, (2) configuration issues, (3) broken pipeline handoffs, (4) stale data / memory invalidation gaps, (5) missing features. For each finding, rate severity: critical / important / minor."
+  agent: analyst
+
+// Phase 2: Parallel deep dives on the most important areas
+parallel:
+  pipeline_analysis = session "Based on these findings, trace the full metabolism → contemplation → crystallization pipeline. Where exactly does it break? What would fix it? Be specific about code changes needed."
+    agent: analyst
+    context: review
+
+  staleness_analysis = session "Analyze the stale data problem specifically. How does each plugin handle memory invalidation? What happens when a fact is corrected — does the old version get superseded? Map out every path where stale data could surface in agent context and propose fixes."
+    agent: analyst
+    context: review
+
+  trust_analysis = session "The human experiences inconsistent agent behavior — sometimes instructions are followed perfectly, sometimes not. Based on the review findings, which plugin issues could contribute to this? Separate: (a) issues where the plugin feeds wrong/stale context causing bad behavior, (b) issues where the plugin fails to learn from corrections, (c) issues that are model-level and outside plugin scope."
+    agent: analyst
+    context: review
+
+// Phase 3: Synthesize into actionable recommendations
+let recommendations = session "Synthesize these three analyses into a prioritized action plan. For each recommendation: what to fix, why it matters for trust/consistency, estimated effort (quick fix / medium / major), and expected impact. Top 5 recommendations first, then everything else."
+  agent: analyst
+  context: { pipeline_analysis, staleness_analysis, trust_analysis }
+
+// Phase 4: Write the blog post draft
+let blog_draft = session "Write a blog post titled something like 'What We Found When We Audited Our AI's Memory System'. Structure: hook (the trust problem — AI that follows instructions one day and ignores them the next), what our memory architecture looks like (the 7-plugin suite), what the code review revealed (the interesting findings — don't list everything, pick the 3-4 most compelling), what we're fixing and why, what this means for anyone building agent memory systems. Target: 1500-2000 words. Include a simplified version of the architecture diagram from the suite README."
+  agent: writer
+  context: { review, recommendations }
+
+// Phase 5: Write everything to files
+session "Write the following files:
+1. ~/clawd/projects/openclaw-memory-architecture/deep-dive-findings-2026-03-07.md — The full synthesized analysis with all recommendations
+2. ~/clawd/projects/adult-in-training/blog/drafts/metacognitive-audit-draft.md — The blog post draft
+
+Include front matter for the blog post (title, date, tags: [ai, memory, openclaw, architecture])."
+  context: { recommendations, blog_draft }

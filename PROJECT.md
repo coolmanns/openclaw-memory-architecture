@@ -59,7 +59,8 @@ Single source of truth:
 |--------|----------|----------|-----------------|
 | Continuity | CoderofTheWest | coolmanns/openclaw-plugin-continuity | facts.db repoint, config, manifest |
 | Metabolism | CoderofTheWest | coolmanns/openclaw-plugin-metabolism | GAPS extraction, gap forwarding, entity normalization, metadata stripping, guardrails, entropy context header parsing (fixes upstream bug — api.stability scoping) |
-| Stability | CoderofTheWest | coolmanns/openclaw-plugin-stability | Local config tweaks |
+| Stability | CoderofTheWest | coolmanns/openclaw-plugin-stability | Semantic emotion scoring (Plutchik + nomic-embed), valence gate, Shannon entropy, debt tracking, intensity scaling, Telegram envelope stripping, expanded keywords |
+| Lossless-claw (LCM) | Martian-Engineering | coolmanns/lossless-claw | Configurable summary model (`summaryModel` config + schema), decouples summarization from session model |
 | Contemplation | CoderofTheWest | (no fork — using upstream) | — |
 | Graph | CoderofTheWest | (no fork — installed untracked) | — |
 
@@ -275,11 +276,22 @@ See: `docs/adr/002-contemplation-implementation.md`
 - Seeded with all 12 PROJECT.md files (1 MB DB after initial session)
 - Does NOT replace: facts.db, metabolism, stability, contemplation, continuity cross-session archive
 - Continuity shifts from "context owner" to "facts enricher" — needs `prependSystemContext` migration
+- **Summary model override:** `summaryModel` config option added to our fork — decouples summarization model from session model. Set in `plugins.entries.lossless-claw.config.summaryModel`. Currently using `anthropic/claude-sonnet-4-6` for summaries while main agent runs Opus. Precedence: env var `LCM_SUMMARY_MODEL` → plugin config `summaryModel` → session model.
 - **Known risks:**
   - Tool I/O stored verbatim — no secrets scrubbing (CRITICAL, not yet addressed)
   - `prependContext` plugins (continuity, stability) pollute the DAG with metadata
-- Repo: https://github.com/Martian-Engineering/lossless-claw
+- Repo: https://github.com/Martian-Engineering/lossless-claw (upstream) | https://github.com/coolmanns/lossless-claw (our fork)
 - Evaluation: 5 OpenProse reports in `projects/lossless-claw-eval/`
+
+### LCM Backend in memory_search (2026-03-08)
+- **Status:** ✅ LIVE — `lcm` is now the fourth backend in `memory_search` alongside continuity, facts, files
+- Default systems string: `continuity,facts,files,lcm`
+- Uses FTS5 indexes on `lcm.db` (both `messages_fts` and `summaries_fts`)
+- Opens lcm.db read-only, runs in parallel with other backends — no latency hit
+- Returns messages (with role, date, snippet) and summaries (with summary_id, kind, depth, date, snippet)
+- Complements continuity's semantic/vector search with text-based search over the lossless record
+- For deep DAG expansion, `lcm_expand_query` remains a separate dedicated tool
+- **Files changed:** `~/.openclaw/extensions/openclaw-plugin-continuity/index.js` — added LCM system block (FTS5 query, result formatting, telemetry)
 
 ### Open: Task #102
 - Growth vector extraction prompt outputs operational noise as "insights"
@@ -375,6 +387,80 @@ Nightshift processes tasks during heartbeat hooks, but heartbeats run 08:00-23:0
 - `~/.openclaw/extensions/openclaw-plugin-contemplation/index.js` — `ingestAndQueue` global
 - `scripts/nightshift-cron.sh` — new
 - Crontab: `*/30 23,0-7 * * *`
+
+## Entropy System Overhaul (2026-03-08)
+
+**Status:** ✅ DEPLOYED — semantic emotion scoring live, valence gate active
+
+### Problem
+Entropy scoring was a crude keyword matcher inherited from upstream (CoderofTheWest). All categories were boolean (single hit = fixed score). Emotional keywords were almost entirely positive/observer-perspective, tuned for the Oct 31 Strange Loop breakdown. Real user frustration ("I'm super frustrated") scored **0.00**. The sophisticated downstream machinery (growth vectors, contemplation, metabolism thresholds) was starved by the crude upstream signal.
+
+### Changes Made (6 rounds)
+
+**Round 1 — Upstream alignment:**
+- Correction weight: +0.40 → +0.26 (matches Clint upstream)
+- Shannon entropy integrated: `calculateShannonEntropy()` (was dead code) now provides novelty boost or repetition penalty in composite score
+- Entropy debt tracking: cumulative ledger — excess above 0.6 accumulates, bleeds off 0.05/turn (0.15 during grounded responses), 3-turn rolling avg >0.2 triggers heightened sensitivity
+- Emotion keywords expanded: 37 → 59 (added sadness, anxiety, surprise, dismissal, deep gratitude)
+
+**Round 2 — Intensity scaling:**
+- All categories switched from boolean to count-based: `Math.min(baseScore + hitCount * increment, cap)`
+- Emotions: base 0.15, +0.10/hit, cap 0.50 | Corrections: base 0.15, +0.07/hit, cap 0.40
+- 73 emotion keywords total
+
+**Round 3 — Stem matching:**
+- Emotion keywords converted to stems at init, matched via regex
+- "frustration" now matches "frustrated"/"frustrating" etc.
+
+**Round 4 — Telegram envelope stripping:**
+- `_stripContextBlocks` didn't know about Telegram metadata envelope (~300 chars of JSON with message_id, sender, etc.)
+- Envelope was being fed into embedding model alongside actual message, diluting scores
+- Fix: dedicated regex strips Telegram metadata blocks and audio transcript headers before scoring
+
+**Round 5 — Semantic emotion scoring (Plutchik wheel):**
+- Replaced keyword emotion block with nomic-embed semantic scoring (localhost:8082)
+- 8 primary emotions × 3 intensity levels = 24 Plutchik anchors, 109 phrase embeddings (768-dim, ~650KB)
+- Runtime: one HTTP call to nomic-embed (~5ms), cosine similarity against all phrase embeddings
+- No LLM calls, no tokens, no cost
+- Catches what keywords missed: "useless waste of time" → 0.24, "holy shit that actually worked" → 0.29
+
+**Round 6 — Valence gate:**
+- Embeddings detect intensity but not direction ("oh my god frustrating" → joy because arousal matches)
+- Pure JS valence gate: curated negative/positive word lists determine message polarity
+- If anchor valence conflicts with detected message valence, reroutes to best anchor of correct valence family
+- "frustrating make me cringe": joy_medium → anger_medium 0.317
+- "I am super frustrated": anger_low → anger_medium 0.454
+
+### Config changes
+- `config.default.json`: metaConceptWarningThreshold 10→3, emotion patterns expanded (73 keywords as fallback), debt config added, correction/paradox/metacognitive patterns expanded
+- Ring buffer: 5 → 50 entries (entropy-history.json)
+- OMA dashboard still reads from ring buffer (not entropy-monitor.jsonl) — known gap
+
+### Results (real user messages)
+| Message | Before | After |
+|---------|--------|-------|
+| "I'm super frustrated" | 0.00 | 0.325 |
+| "This is fucking amazing!" | 0.00 | 0.471 |
+| "This is sooo unacceptable" | 0.00 | 0.515 |
+| "Man this frustrating" | 0.00 | 0.534 |
+| "yes please" | 0.00 | 0.045 |
+| "Approved. Go ahead." | 0.00 | 0.011 |
+
+### Known limitations
+- Sarcasm not detected (embeddings can't catch "So I need to curb my sarcasm")
+- Indirect frustration weak ("this better be not another bad experience" → 0.049)
+- Negation patterns missed ("not fun" → low score)
+- Dashboard reads 50-entry ring buffer, not full entropy-monitor.jsonl
+
+### Files changed
+- `~/.openclaw/extensions/openclaw-plugin-stability/lib/entropy.js` — async scoring, Shannon, debt, intensity scaling, stems, semantic embeddings, valence gate
+- `~/.openclaw/extensions/openclaw-plugin-stability/index.js` — async agent_end, Telegram envelope stripping
+- `~/.openclaw/extensions/openclaw-plugin-stability/config.default.json` — expanded patterns, debt config, threshold adjustments
+- `~/.openclaw/extensions/openclaw-plugin-stability/data/emotion-anchors.json` — 24 Plutchik anchors with phrases and weights (~6.7KB)
+- `~/.openclaw/extensions/openclaw-plugin-stability/data/emotion-embeddings.json` — 109 phrase embeddings, 768-dim (~650KB)
+
+### Architecture insight from research paper
+CoderOfTheWest's growth-vector-systems-paper.md (Feb 2026) acknowledges keyword matching is the weakest link. Clint has 9-source entropy decomposition but same keyword foundation. Paper notes model-internal entropy (logit distributions) would be better than text-based pattern matching. Our semantic scoring via local embeddings is a step beyond upstream that stays within the text-based paradigm but uses actual semantic similarity instead of string matching.
 
 ## Roadmap
 

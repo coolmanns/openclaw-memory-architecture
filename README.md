@@ -68,20 +68,67 @@ This architecture uses **each tool where it's strongest**.
 
 ## Layers Quick Reference
 
-| Layer | System | Purpose | Latency |
-|-------|--------|---------|---------|
-| **0** | **LCM (lossless-claw)** | **Lossless within-session context — DAG + FTS** | **Runtime** |
-| 1 | Always-loaded files | Identity, working memory | 0ms (injected) |
-| 2 | MEMORY.md | Curated long-term wisdom | 0ms (injected) |
-| 3 | PROJECT.md per project | Institutional knowledge | 0ms (injected) |
-| 4 | facts.db | Structured entity/key/value | <1ms (SQLite) |
-| 5 | Semantic search | Fuzzy recall, document search | 7ms (GPU) |
-| 5a | LightRAG | Domain GraphRAG (11 books + 139 papers) | ~200ms |
-| 6 | Daily logs | Raw session history | On demand |
-| 10 | Continuity plugin | Cross-session conversation archive | Runtime |
-| 11 | Stability plugin | Entropy monitoring, growth vectors | Runtime |
-| 12 | Metabolism plugin | Fact extraction, gap detection | Runtime |
-| 13 | Contemplation plugin | Deep inquiry pipeline (3-pass) | Background |
+| Layer | System | Searchable via | Purpose | Latency |
+|-------|--------|---------------|---------|---------|
+| **0** | **LCM (lossless-claw)** | **`memory_search` (lcm) + LCM tools** | **Lossless within-session context — DAG + FTS** | **Runtime** |
+| 1 | Always-loaded files | (injected) | Identity, working memory | 0ms |
+| 2 | MEMORY.md | (injected) | Curated long-term wisdom | 0ms |
+| 3 | PROJECT.md per project | (injected) | Institutional knowledge | 0ms |
+| 4 | facts.db | `memory_search` (facts) | Structured entity/key/value | <1ms |
+| 5 | Continuity archive | `memory_search` (continuity) | Cross-session conversation recall | 7ms |
+| 5a | File-vec index | `memory_search` (files) | Workspace document search | 7ms |
+| 5b | LightRAG | Dedicated tool | Domain GraphRAG (11 books + 139 papers) | ~200ms |
+| 6 | Daily logs | On demand | Raw session history | On demand |
+| 10 | Continuity plugin | — | Context budgeting, topic tracking, anchors | Runtime |
+| 11 | Stability plugin | — | Entropy monitoring, growth vectors | Runtime |
+| 12 | Metabolism plugin | — | Fact extraction, gap detection | Runtime |
+| 13 | Contemplation plugin | — | Deep inquiry pipeline (3-pass) | Background |
+
+## Unified Search: `memory_search`
+
+One tool, four backends, one call:
+
+```
+memory_search("what did we decide about the database?")
+        │
+        ├── continuity  — semantic vector search over conversation archives (384d embeddings)
+        ├── facts       — structured entity/key/value lookup + FTS5 (facts.db)
+        ├── files       — workspace document vector search (file-vec index)
+        └── lcm         — full-text search over lossless messages + summaries (lcm.db FTS5)
+        │
+        ▼
+    Combined results — one response, all memory systems
+```
+
+All four backends run **in parallel** — no latency penalty from adding more. Results are formatted by type:
+
+| Backend | What it finds | Best for |
+|---------|--------------|----------|
+| **continuity** | Past conversations (semantic similarity + temporal re-ranking) | "What did we discuss about X?" |
+| **facts** | Structured facts, preferences, decisions (exact + fuzzy) | "What's my daughter's birthday?" |
+| **files** | Workspace documents, project files, notes | "Where did I document the deploy process?" |
+| **lcm** | Raw messages + compressed summaries from lossless history | "What command did I run yesterday?" |
+
+### When to go deeper
+
+`memory_search` covers 90% of recall needs. For the other 10% — when you need to drill into a compressed summary, trace a decision chain, or recover exact commands from a long session — use the dedicated LCM tools:
+
+- `lcm_grep` — targeted regex/full-text search (same as the lcm backend, but standalone)
+- `lcm_describe` — inspect a specific summary's metadata
+- `lcm_expand_query` — spawn a sub-agent to traverse the DAG and answer questions from expanded context (~120s, for precision questions)
+
+### Configuration
+
+```bash
+# Search all backends (default)
+memory_search(query: "database migration", systems: "continuity,facts,files,lcm")
+
+# Search specific backends
+memory_search(query: "Sascha's birthday", systems: "facts")
+memory_search(query: "deployment steps", systems: "files,lcm")
+```
+
+The `systems` parameter defaults to `continuity,facts,files,lcm`. Pass a comma-separated subset to narrow scope.
 
 ## Key Features
 
@@ -276,12 +323,13 @@ The newest layer — and architecturally the most significant. Instead of OpenCl
 5. Nothing is ever deleted — you can drill into any summary to recover the original messages
 
 **Search tools:**
-- `lcm_grep` — regex or full-text search across all messages and summaries
+- `memory_search` (lcm backend) — FTS5 search over messages and summaries, runs in parallel with other backends
+- `lcm_grep` — standalone regex or full-text search (same underlying query, more control)
 - `lcm_describe` — inspect a specific summary's metadata and content
 - `lcm_expand` — traverse the DAG to recover compressed detail
 - `lcm_expand_query` — delegated sub-agent answers questions from expanded context
 
-**Complementary to continuity:** LCM handles within-session lossless context. Continuity handles cross-session archive and recall. They serve different timescales.
+**Complementary to continuity:** LCM handles within-session lossless context. Continuity handles cross-session archive and recall. They serve different timescales. Both are searchable through the same `memory_search` tool — continuity via semantic vectors, LCM via full-text search.
 
 **Config:**
 ```json

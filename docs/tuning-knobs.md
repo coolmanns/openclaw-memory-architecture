@@ -1,7 +1,7 @@
 # Tuning Knobs — Memory & Metabolism Configuration
 
 > All the dials in one place. When something feels off, check here first.
-> Last updated: 2026-03-05
+> Last updated: 2026-03-07
 
 ## Metabolism (processing pipeline)
 
@@ -9,11 +9,11 @@
 |------|-------|---------|--------------|
 | `maxCandidatesPerCycle` | `openclaw.json` → metabolism config | 2 | How many conversation candidates get processed per cron run |
 | Cron interval | `crontab -l` | Every 5 min | How often metabolism processes candidates |
-| `entropyMinimum` | metabolism config | 0.6 | Minimum entropy score for a conversation to become a candidate (higher = pickier) |
+| `entropyMinimum` | metabolism config | 0.7 | Minimum entropy score for a conversation to become a candidate (higher = pickier). **Now functional** — reads real entropy from stability context header (fixed 2026-03-07, was broken since inception due to OpenClaw plugin API scoping) |
 | P0-P3 classification | `processor.js` prompt | LLM decides | The LLM prompt defines what counts as P0 vs P1 vs P2 vs P3 |
 | facts-db routing | `processor.js` prompt | LLM decides | LLM chooses whether extracted facts go to facts.db, active-context, daily file, or nowhere |
 
-**Throughput math:** 2 candidates × 12 runs/hour = 24 candidates/hour max. If conversations generate more than that, backlog grows. Bump `maxCandidatesPerCycle` to 5-8 if queue stays >20.
+**Throughput math:** 10 candidates × 12 runs/hour = 120 candidates/hour max. Cron bumped from `*/30` to `*/5` on 2026-03-07 after backlog grew to 34. With entropy gate now functional, candidate inflow should be much lower (only high-entropy exchanges create candidates).
 
 **LLM timeout:** 60s (was 30s). The 14B model is slower under GPU contention (active Opus sessions). 60s prevents false timeouts while still catching real hangs.
 
